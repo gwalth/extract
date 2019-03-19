@@ -20,10 +20,35 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 
-from math_utils import MAD
-from algorithms import rect_smooth, tri_smooth
+#from math_utils import MAD
+#from algorithms import rect_smooth, tri_smooth
 
 from simpledb import simpledb
+
+def rect_smooth(y):
+    j = 1   
+    go = 1  
+    S = np.zeros(y.shape)
+    while go:
+        S[j] = (y[j-1]+y[j]+y[j+1])/3
+        j += 1
+        if j == len(y) - 1: go = 0
+    return S
+
+def tri_smooth(y):
+    j = 2
+    go = 1
+    S = np.zeros(y.shape)
+    #print S.shape
+    while go:
+        S[j] = (y[j-2]+2*y[j-1]+3*y[j]+2*y[j+1]+y[j+2])/9
+        j += 1
+        if j == len(y) - 2: go = 0
+    return S
+
+def MAD(x):
+    return np.median(np.abs(x-np.median(x)))
+
 
 
 class SingleObject:
