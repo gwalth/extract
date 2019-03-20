@@ -688,13 +688,13 @@ for tr in trace:
     tfun.append(dot(tr,b))
 
 tfun = np.asarray(tfun)
-db.dict["trace"] = tfun
-db.write()
+#db.dict["trace"] = tfun
+#db.write()
 
 #print tfun.shape
-#t = open(fdir + ".trace","wb")
-#cPickle.dump(tfun,t) 
-#t.close()
+t = open(fdir + ".trace","wb")
+cPickle.dump(tfun,t) 
+t.close()
 
 
 

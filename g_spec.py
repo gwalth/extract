@@ -586,9 +586,10 @@ class SingleObject:
 #  g_spec.py -smf 021953.SMF -dir 021953 --trace 021953.trace
 
 ph1 = os.getenv("PYTHONHOME1")
-if not ph1: raise "PYTHONHOME1 environmental variable not set!"
+#if not ph1: raise "PYTHONHOME1 environmental variable not set!"
 
-wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
+#wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
+wavefile = None
 
 #spec_i = 0
 #noise_i = 1
@@ -652,21 +653,21 @@ else:
 
 
 # import traces
-#tfun = None
-#ind = 0
-#if trace:
-#    tfun = cPickle.load(open(trace))
-#    # Compatability mode (older version)
-#    #if type(tfun) is ListType: ind = 0
-#    # Temporary mode, future mode to be added to fs
-#    #if type(tfun) is np.ArrayType:
-#    #    if tfun.shape[0] > 1: ind = 1
-#    #    elif tfun.shape[0] == 1: ind = 0
-#    print type(tfun)
-#    print tfun.shape
+tfun = None
+ind = 0
+if trace:
+    tfun = cPickle.load(open(trace))
+    # Compatability mode (older version)
+    #if type(tfun) is ListType: ind = 0
+    # Temporary mode, future mode to be added to fs
+    #if type(tfun) is np.ArrayType:
+    #    if tfun.shape[0] > 1: ind = 1
+    #    elif tfun.shape[0] == 1: ind = 0
+    print type(tfun)
+    print tfun.shape
 
-#objD["trace"] = tfun
-#print objD["trace"]
+objD["trace"] = tfun
+print objD["trace"]
 
 
 
