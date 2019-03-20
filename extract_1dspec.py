@@ -325,7 +325,7 @@ def Etrace(o,d,p,t,a,r=2,shift=True,f=False,edge=3):
            #qdump("um2.fits",um)
            p2 = divz(sum((sm*um*y2).flat), sum((sm*um).flat))
            p2 = clip(p2,p-max([8,a]),p+max([8,a]))
-           sys.stdout.write("(%.0f,%1.f,%.1f)" % (sn,p,p2-p)); sys.stdout.flush()
+           sys.stdout.write("(%.1f,%.1f,%.1f)" % (sn,p,p2-p)); sys.stdout.flush()
            p = p2
            #raw_input("<< cr >>")
          else:
@@ -352,7 +352,7 @@ def Etrace(o,d,p,t,a,r=2,shift=True,f=False,edge=3):
 #    extract_1dspec.py -smf 021953.SMF -dir 021953
 ##################################################
 
-parser = argparse.ArgumentParser(description='Display 1d and 2d spectra.')
+parser = argparse.ArgumentParser(description='Extract 1d spectra')
 
 parser.add_argument('-smf', metavar='file', type=str, nargs='?',
                     default=None,help='SMF file')
@@ -458,7 +458,8 @@ print refx
 print refy
 
 fit_orders = True
-
+user_input = "go"
+#user_input = "done"
 
 #    if not mark and (testsmf and not orders): user_input = "go"
 #    else: user_input = "done"
@@ -466,13 +467,10 @@ fit_orders = True
 #plt.ioff()
 print plt.rcParams['interactive']
 
-
-
 fig = plt.figure()
 plt.show(block=False)
 
 while fit_orders:
-
 
     markers = [['.','o'][r] for r in refo]
     colors = [['k','None'][r] for r in refo]
@@ -538,7 +536,11 @@ while fit_orders:
        print "BWT=",bwt(compress(uweights,resid))
     # not sure why red is not ploting like imacsSpec1d.py 
     for i in xrange(len(refo)): p4.scatter(refx[i],resid[i],c=colors_r[i], s=20, marker=markers[i],edgecolor="r")
-    for i in xrange(len(refo)): p4.scatter(np.compress(uweights,refx)[i],np.compress(uweights,resid)[i],c=colors_b[i],s=20,marker=markers[i],edgecolor="b")
+
+    refo_filt = np.compress(uweights,refo)
+    refx_filt = np.compress(uweights,refx)
+    resid_filt = np.compress(uweights,resid)
+    for i in xrange(len(refo_filt)): p4.scatter(refx_filt[i],resid_filt[i],c=colors_b[i],s=20,marker=markers[i],edgecolor="b")
     #p4.scatter(refx,resid,c="r",s=10)
     #p4.scatter(np.compress(uweights,refx),np.compress(uweights,resid),c="b",s=10)
     
@@ -572,14 +574,14 @@ while fit_orders:
 
     plt.draw()
     
-    if fit_orders:
-       prompt = "<(ox,oy,cut) = (%d,%d,%f)> " % (ox,oy,ampcut)
-       user_input = raw_input( prompt)
-       try:
-          ox,oy,ampcut = eval(user_input)
-          weights = np.greater(amps,ampcut)
-          weights = weights*between(sigmas,0.1,2*np.median(sigmas))
-       except: pass
+    if user_input != "done":
+        prompt = "<(ox,oy,cut) = (%d,%d,%f)> " % (ox,oy,ampcut)
+        user_input = raw_input( prompt)
+        try:
+           ox,oy,ampcut = eval(user_input)
+           weights = np.greater(amps,ampcut)
+           weights = weights*between(sigmas,0.1,2*np.median(sigmas))
+        except: pass
 
     plt.clf()
 
@@ -670,8 +672,9 @@ print
 
 # Spectral Extractions
 for d in D:
-  if d["ref"]: d["ap"] = aper
-  else: d["ap"] = aper
+    if d["ref"]: d["ap"] = aper
+    else: d["ap"] = aper
+
 
 
 
@@ -685,10 +688,13 @@ for tr in trace:
     tfun.append(dot(tr,b))
 
 tfun = np.asarray(tfun)
-print tfun.shape
-t = open(fdir + ".trace","wb")
-cPickle.dump(tfun,t) 
-t.close()
+db.dict["trace"] = tfun
+db.write()
+
+#print tfun.shape
+#t = open(fdir + ".trace","wb")
+#cPickle.dump(tfun,t) 
+#t.close()
 
 
 
@@ -716,29 +722,48 @@ t.close()
 
  
 print "Starting extractions"
-#S = [Etrace(d["id"],d["data"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=trace_th,shift=not no_find and d["shift"],f=False,edge=edge) for k,d in enumerate(D)]
 spectra = [Etrace(d["id"],(d["data"]["spec2d"],d["data"]["noise2d"]),d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=trace_th,shift=not no_find and d["shift"],f=False,edge=edge) for k,d in enumerate(D)]
 print
 # spectra, noise
-spectra = np.array([[s[0] for s in spectra],[s[1] for s in spectra]])
-print spectra.shape
+
+# trace positions?
+Sp = array([s[2] for s in spectra])
+#print Sp
+#print [1+d["orig_pos"] for d in D]
+#print [1+d["pos"] for d in D]
+
+spectra_arr = np.array([[s[0] for s in spectra],[s[1] for s in spectra]])
+
+print spectra_arr.shape
+#sys.exit()
 
 # Sky Extractions
 print "Starting sky extractions"
 skys = [Etrace(d["id"],d["data"]["sky2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D)]
-skys = array([s[0] for s in skys])
+skys_arr = np.array([s[0] for s in skys])
 
 ## Flattened-Flatfield Extractions
 print "Starting flat extractions"
 flats = [Etrace(d["id"],d["data"]["flat2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D)]
-flats = array([f[0] for f in flats])
+flats_arr = np.array([f[0] for f in flats])
 
+print flats_arr.shape
+print spectra_arr.shape
 
-all_extractions = concatenate([spectra,[skys],[flats]],0)
+fluxed_spectra_arr = np.array([[divz(s[0]/(f[0]/np.sum(f[0]))) for s,f in zip(spectra,flats)],
+                               [divz(s[1]/(f[0]/np.sum(f[0]))) for s,f in zip(spectra,flats)]])
+
+#fluxed_spectra = np.array([divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)])
+#fluxed_spectra = np.array([[divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)], 
+#                           [divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)]])
+
+print fluxed_spectra_arr.shape
+
+all_extractions = concatenate([spectra_arr,[skys_arr],[flats_arr],fluxed_spectra_arr],0)
 print all_extractions.shape
 
-print D
-print len(D)
+#print D
+#print len(D)
 
 
 # individual 1dspec FITS files
@@ -748,7 +773,22 @@ for k,d in enumerate(D):
     spectrum = all_extractions[::,k,::]
 
     nf = fdir + "/" + id + "_1dspec.fits"
-    hdu = pyfits.PrimaryHDU(spectrum,header=head)
+
+    new_head = head.copy()
+    #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
+    #new_head["extrpos"] = 1. + Sp[k] - d["pos"]
+    #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
+    new_head["extrpos"] = (Sp[k],"1D extracted position of spectrum, in pixels")
+    new_head["aper"] = (d["ap"],"aperture size, diameter in pixels")
+
+    new_head["ARRAY1"] = ("SPECTRUM","units of counts")
+    new_head["ARRAY2"] = ("NOISE","units of counts")
+    new_head["ARRAY3"] = ("SKY","units of counts")
+    new_head["ARRAY4"] = ("RAW FLATS","units of counts")
+    new_head["ARRAY5"] = ("FLUXED SPECTRUM","units of counts")
+    new_head["ARRAY6"] = ("FLUXED NOISE","units of counts")
+
+    hdu = pyfits.PrimaryHDU(spectrum,header=new_head)
     #hdu = pyfits.PrimaryHDU(spectrum)
     hdu.writeto(nf,clobber=True)
 

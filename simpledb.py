@@ -1,5 +1,6 @@
 
 import glob,re,os,shutil,sys
+import cPickle
 
 import numpy as np
 
@@ -24,17 +25,17 @@ class simpledb:
         self.refobjs  = [l[1] for l in L if l[0] == "HOLE"]
 
         self.open()
-        if "objects" not in self.dict.keys() or "smf" not in self.keys(): self.create()
+        if not self.dict.has_key("objects") or not self.dict.has_key("smf"): self.create()
 
     def open(self):
         if os.path.exists(self.mask+".p"):
             shutil.copyfile(self.mask+".p", self.mask+".p.bkup")
-            self.dict = pickle.load(open( self.mask+".p", "rb" ))
+            self.dict = cPickle.load(open( self.mask+".p", "rb" ))
         else:
             self.dict = {}
 
     def write(self):
-        pickle.dump(self.dict, open(self.mask+".p", "wb" ))
+        cPickle.dump(self.dict, open(self.mask+".p", "wb" ))
 
     def create(self):
         print "no db"

@@ -26,8 +26,8 @@ import matplotlib.cm as cm
 from simpledb import simpledb
 
 def rect_smooth(y):
-    j = 1   
-    go = 1  
+    j = 1
+    go = 1
     S = np.zeros(y.shape)
     while go:
         S[j] = (y[j-1]+y[j]+y[j+1])/3
@@ -50,10 +50,9 @@ def MAD(x):
     return np.median(np.abs(x-np.median(x)))
 
 
-
 class SingleObject:
 
-    def __init__(self,fig,fr,N):
+    def __init__(self,fig,fr,N,trace=None):
         self.fr = fr
         self.fig = fig
 
@@ -68,12 +67,18 @@ class SingleObject:
         self.control_is_held = True
         self.smooth = 1
 
+        self.trace = 0
+        self.tfun = None
+
         self.display()
 
     def display(self,resetbounds = 1):
 
         if resetbounds:
             self.sobj = objD[rows[self.fr]]["setup"]
+
+            self.tfun = objD["trace"] 
+
             f1d = self.sobj["spec1d"]
             f2d = self.sobj["spec2d"]
             
@@ -101,6 +106,12 @@ class SingleObject:
             #print self.spec1d[spec_i,self.fr,:]
             print
             print
+
+            #self.extrold = header["extrold"] 
+            self.objpos = header["objpos"] 
+            self.extrpos = header["extrpos"]
+            self.aper = header["aper"]
+            if self.extrpos == "N/A": self.extrpos = self.extrold
             
             pf2d = pyfits.open(f2d,ignore_missing_end=1)
             self.big = pf2d[0].data
@@ -148,7 +159,7 @@ class SingleObject:
         print self.spec.shape
 
         #self.ax1.imshow(self.big[self.ya:self.yb,self.x0:self.x1],
-        self.ax1.imshow(self.img[:,self.x0:self.x1],
+        self.ax1.imshow(self.img[:,self.x0:self.x1], origin='lower',
                         interpolation="nearest", cmap=cm.gray_r,
                         vmin=self.v0, vmax=self.v1, aspect="auto",
                         extent=(self.w0,self.w1,0,self.img.shape[0]))
@@ -192,10 +203,29 @@ class SingleObject:
             self.ax1.text(0.85,1.1,"z = %.4f" % self.z,
                           transform=self.ax1.transAxes)
 
+        if self.trace and self.tfun is not NoneType:
+            self.display_trace()
+            #self.ax1.text(0.85,1.1,"%.2f" % self.cntr_old,
+            #    transform=self.ax1.transAxes)
+            #self.ax1.text(0.85,1.1,"%.2f" % self.cntr_new,
+            #    transform=self.ax1.transAxes)
+            
+
 
         #print self.v0,self.v1
 
         plt.draw()
+
+    def display_trace(self):
+
+
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0],"--",color="k")
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0]-self.aper/2.0,"--",color="g")
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0]+self.aper/2.0,"--",color="g")
+        #self.ax1.plot(self.w, self.extrold + self.tfun[0],"--",color="y")
+        self.ax1.plot(self.w, self.objpos + self.tfun[0],"--",color="y")
+
+
 
 
     def display_redshift(self):
@@ -312,6 +342,10 @@ class SingleObject:
         if event.key == 'B':
             val = int(raw_input("Enter the boxcar width? "))
             self.smooth_spec = convolve(self.spec, Box1DKernel(val))
+
+        if event.key == 'T':
+            if self.trace: self.trace = 0
+            else: self.trace = 1
 
         if event.key == "x" or event.key == "z":
             if not self.control_is_held:
@@ -549,16 +583,20 @@ class SingleObject:
 
 # e.g
 #  g_spec.py -smf 021953.SMF -dir 021953
+#  g_spec.py -smf 021953.SMF -dir 021953 --trace 021953.trace
 
 ph1 = os.getenv("PYTHONHOME1")
 if not ph1: raise "PYTHONHOME1 environmental variable not set!"
 
 wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
 
-spec_i = 0
-noise_i = 1
+#spec_i = 0
+#noise_i = 1
+spec_i = 4
+noise_i = 5
 #spec_i = 5
 #noise_i = 6
+
 mode = "manual"
 
 fontsize=12
@@ -577,6 +615,8 @@ parser.add_argument('-l', metavar='file', type=str, nargs='?',
                     default=wavefile, help='line list')
 parser.add_argument('-dir', metavar='file', type=str, nargs='?',
                     default=None,help='directory of 2d spectra')
+parser.add_argument('--trace', metavar='file', type=str, nargs='?',
+                    default=None,help='trace file')
 
 #args = parser.parse_args(namespace=)
 args = parser.parse_args()
@@ -587,6 +627,7 @@ print args.__dict__.keys()
 smf  = args.smf
 fdir = args.dir
 fr   = args.fr
+trace = args.trace
 
 
 
@@ -612,17 +653,21 @@ else:
 
 # import traces
 #tfun = None
-ind = 0
+#ind = 0
 #if trace:
-#    tfun = pickle.load(open(trace))
+#    tfun = cPickle.load(open(trace))
 #    # Compatability mode (older version)
-#    if type(tfun) is ListType: ind = 0
+#    #if type(tfun) is ListType: ind = 0
 #    # Temporary mode, future mode to be added to fs
-#    if type(tfun) is ArrayType:
-#        if tfun.shape[0] > 1: ind = 1
-#        elif tfun.shape[0] == 1: ind = 0
-#edataD["trace"] = {"data":tfun,"status":tstatus,"ind":ind} 
-#if tstatus: edataD["trace"]["status"] = 1
+#    #if type(tfun) is np.ArrayType:
+#    #    if tfun.shape[0] > 1: ind = 1
+#    #    elif tfun.shape[0] == 1: ind = 0
+#    print type(tfun)
+#    print tfun.shape
+
+#objD["trace"] = tfun
+#print objD["trace"]
+
 
 
 
