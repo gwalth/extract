@@ -63,9 +63,11 @@ class SingleObject:
 
         self.redshift = 0
         self.z = None
+        self.zq = None
         self.shift_is_held = False
         self.control_is_held = True
         self.smooth = 1
+        self.comment = ""
 
         self.trace = 0
         self.tfun = None
@@ -75,12 +77,16 @@ class SingleObject:
     def display(self,resetbounds = 1):
 
         if resetbounds:
-            self.sobj = objD[rows[self.fr]]["setup"]
+            self.setup_obj = objD[rows[self.fr]]["setup"]
+            #self.smf_obj = objD[rows[self.fr]]["smf"]
 
-            self.tfun = objD["trace"] 
+            #self.tfun = objD["trace"] 
+            self.tfun = db.dict["trace"]
 
-            f1d = self.sobj["spec1d"]
-            f2d = self.sobj["spec2d"]
+            self.z = self.setup_obj["z"] 
+
+            f1d = self.setup_obj["spec1d"]
+            f2d = self.setup_obj["spec2d"]
             
             pf1d = pyfits.open(f1d,ignore_missing_end=1)
             self.spec1d = pf1d[0].data
@@ -96,16 +102,16 @@ class SingleObject:
             self.x = np.arange(xsize)+1
             self.w = (self.x-self.crpix1)*self.cd1_1+self.crval1  # compute wavelength
             
-            print (xsize-self.crpix1)*self.cd1_1+self.crval1
+            #print (xsize-self.crpix1)*self.cd1_1+self.crval1
             if self.dc_flag: self.w = np.power(10,self.w)
-            print self.w
+            #print self.w
             
             print self.spec1d.shape
             #print self.spec1d[spec_i,:].shape
             #print self.spec1d[spec_i,self.fr,:].shape
             #print self.spec1d[spec_i,self.fr,:]
-            print
-            print
+            #print
+            #print
 
             #self.extrold = header["extrold"] 
             self.objpos = header["objpos"] 
@@ -116,16 +122,18 @@ class SingleObject:
             pf2d = pyfits.open(f2d,ignore_missing_end=1)
             self.big = pf2d[0].data
             self.header = pf2d[0].header
-            print self.big.shape
+            #print self.big.shape
 
             #self.ya    = self.header['CSECT%0dA' % (self.fr+1)]
             #self.yb    = self.header['CSECT%0dB' % (self.fr+1)]
             #self.obj   = self.header['OBJ%03d' % (self.fr+1)]
             #self.apnum = self.header['APNUM%d' % (self.fr+1)]
 
+            self.obj = self.setup_obj["object"]
+
             #self.img   = self.big[self.ya:self.yb,:]
             self.img   = self.big
-            print self.spec1d.shape
+            #print self.spec1d.shape
             self.spec  = self.spec1d[spec_i,:]
             self.noise = self.spec1d[noise_i,:]
 
@@ -136,7 +144,7 @@ class SingleObject:
             self.bounds()
 
 
-        #self.z = self.sobj["z"]
+        #self.z = self.setup_obj["z"]
 
         #self.w1 = 10010
 
@@ -153,10 +161,10 @@ class SingleObject:
         self.x1 = int((self.w1 - self.crval1)/self.cd1_1+self.crpix1)
 
 
-        print self.x0,self.x1
-        print self.w0,self.w1
-        print self.img.shape
-        print self.spec.shape
+        #print self.x0,self.x1
+        #print self.w0,self.w1
+        #print self.img.shape
+        #print self.spec.shape
 
         #self.ax1.imshow(self.big[self.ya:self.yb,self.x0:self.x1],
         self.ax1.imshow(self.img[:,self.x0:self.x1], origin='lower',
@@ -196,8 +204,10 @@ class SingleObject:
 
 
         # display info
-        #self.ax1.text(0.0,1.1,"id = %s" % self.obj,
-        #              transform=self.ax1.transAxes)
+        self.ax1.text(0.0,1.1,"row = %i" % rows[self.fr],
+                      transform=self.ax1.transAxes)
+        self.ax1.text(0.2,1.1,"id = %s" % self.obj,
+                      transform=self.ax1.transAxes)
         if self.redshift and type(self.z) is not NoneType:
             self.display_redshift()
             self.ax1.text(0.85,1.1,"z = %.4f" % self.z,
@@ -209,8 +219,6 @@ class SingleObject:
             #    transform=self.ax1.transAxes)
             #self.ax1.text(0.85,1.1,"%.2f" % self.cntr_new,
             #    transform=self.ax1.transAxes)
-            
-
 
         #print self.v0,self.v1
 
@@ -218,15 +226,11 @@ class SingleObject:
 
     def display_trace(self):
 
-
-        self.ax1.plot(self.w, self.extrpos + self.tfun[0],"--",color="k")
-        self.ax1.plot(self.w, self.extrpos + self.tfun[0]-self.aper/2.0,"--",color="g")
-        self.ax1.plot(self.w, self.extrpos + self.tfun[0]+self.aper/2.0,"--",color="g")
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0],"--",color="w")
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0]-self.aper/2.0,"--",color="w")
+        self.ax1.plot(self.w, self.extrpos + self.tfun[0]+self.aper/2.0,"--",color="w")
         #self.ax1.plot(self.w, self.extrold + self.tfun[0],"--",color="y")
-        self.ax1.plot(self.w, self.objpos + self.tfun[0],"--",color="y")
-
-
-
+        self.ax1.plot(self.w, self.objpos + self.tfun[0],"--",color="b")
 
     def display_redshift(self):
         dw = (self.w1-self.w0)/200.
@@ -264,6 +268,8 @@ class SingleObject:
 
     def on_key(self,event):
         print('you pressed', event.key, event.xdata, event.ydata)
+
+
 
     def on_key_press(self,event):
 
@@ -307,6 +313,14 @@ class SingleObject:
         #           self.fr += 1
         #           resetbounds = 1
 
+        if event.key == 'g':
+            val = int(raw_input("Go to frame? "))
+            if val >= 0 and val < self.slits:
+                self.fr = val
+                resetbounds = 1
+            else:
+                print "Error! Out of range!"
+
         if event.key == "n":
            if self.fr < self.slits-1:
                self.fr += 1
@@ -316,7 +330,6 @@ class SingleObject:
            if self.fr > 0:
                self.fr -= 1
                resetbounds = 1
-
 
         vran = self.v1 - self.v0
         yran = self.y1 - self.y0
@@ -347,25 +360,25 @@ class SingleObject:
             if self.trace: self.trace = 0
             else: self.trace = 1
 
-        if event.key == "x" or event.key == "z":
-            if not self.control_is_held:
-              if self.shift_is_held:
-                  xran = xran/zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
-                  if self.w0 < self.w[0]:  self.w0 = self.w[0]
-                  if self.w1 > self.w[-1]: self.w1 = self.w[-1]
-              else:
-                  xran = xran*zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
-                  if self.w0 < self.w[0]:  self.w0 = self.w[0]
-                  if self.w1 > self.w[-1]: self.w1 = self.w[-1]
+        #if event.key == "x" or event.key == "z":
+        #    if not self.control_is_held:
+        #      if self.shift_is_held:
+        #          xran = xran/zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
+        #          if self.w0 < self.w[0]:  self.w0 = self.w[0]
+        #          if self.w1 > self.w[-1]: self.w1 = self.w[-1]
+        #      else:
+        #          xran = xran*zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
+        #          if self.w0 < self.w[0]:  self.w0 = self.w[0]
+        #          if self.w1 > self.w[-1]: self.w1 = self.w[-1]
 
-        if event.key == "y" or event.key == "z":
-            if not self.control_is_held:
-              if self.shift_is_held:
-                  yran = yran/zf
-                  self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
-              else:
-                  yran = yran*zf
-                  self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
+        #if event.key == "y" or event.key == "z":
+        #    if not self.control_is_held:
+        #      if self.shift_is_held:
+        #          yran = yran/zf
+        #          self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
+        #      else:
+        #          yran = yran*zf
+        #          self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
 
         if event.key == "h":
             self.w0 = self.w0 - xran/10.
@@ -385,35 +398,53 @@ class SingleObject:
         if event.key == "r":
             resetbounds = 1
 
-        #if event.key == "z":
-        #    if self.control_is_held:
-        #        if self.redshift: self.redshift = 0
-        #        else: self.redshift = 1
+        if event.key == "w":
+            try:
+                wav_obs = float(raw_input("Enter rest-frame wavelength of line? "))
+                self.z = event.xdata/wav_obs - 1
+                objD[rows[self.fr]]["setup"]["z"] = self.z
+                #self.resetbounds = 1
+            except:
+                print "Error!"
 
-        if event.key == "ctrl+z":
+        if event.key == "z":
             if self.redshift: self.redshift = 0
             else: self.redshift = 1
 
-        #if event.key in ["[","]"] and wlist and self.redshift:
-        #    #print self.z
+        if event.key == "H":
+            zq_th = 1
+            bins = 20
 
-        #    self.z = self.sobj["z"]
-        #    if type(self.z) is NoneType: self.z = 0
+            zs = np.array([objD[i]["setup"]["z"] for i in objD])
+            zqs = np.array([objD[i]["setup"]["zq"] for i in objD])
 
-        #    if self.shift_is_held:
-        #        if event.key == "[": self.z -=0.0001
-        #        if event.key == "]": self.z +=0.0001
-        #    else:
-        #        if event.key == "[": self.z -=0.01
-        #        if event.key == "]": self.z +=0.01
+            filt = (zs != np.array(None))*(zqs != np.array(None))*((zqs > zq_th))
 
-        #    #print self.z
-        #    #objD[rows[fr]]["setup"]["z"] = zt
-        #    #sobj["z"] = self.z
-        #    objD[rows[self.fr]]["setup"]["z"] = self.z
+            new_z = zs[filt]
 
+            fig2 = plt.figure()
+            p = fig2.add_subplot(111)
+            p.hist(new_z,bins)
+            p.text(0.0,1.025,"N = %i" % (len(new_z)), transform=p.transAxes)
+            p.text(0.9,1.025,"zq > %i " % (zq_th), transform=p.transAxes)
+            p.set_xlabel("Redshift z")
+            plt.show()
+
+        if event.key == "Z":
+            try:
+                self.z = float(raw_input("Enter redshift? "))
+                objD[rows[self.fr]]["setup"]["z"] = self.z
+                #self.resetbounds = 1
+            except:
+                print "Error!"
+
+        if event.key == "Q":
+            print "Quiting..."
+            db.write()
+            sys.exit()
+            
         if event.key in ["[","]"] and wlist and self.redshift:
-            self.z = self.sobj["z"]
+            self.z = self.setup_obj["z"]
             if type(self.z) is NoneType: self.z = 0
 
             if event.key == "[": self.z -=0.01
@@ -422,7 +453,7 @@ class SingleObject:
             objD[rows[self.fr]]["setup"]["z"] = self.z
 
         if event.key in ["{","}"] and wlist and self.redshift:
-            self.z = self.sobj["z"]
+            self.z = self.setup_obj["z"]
             if type(self.z) is NoneType: self.z = 0
 
             if event.key == "{": self.z -=0.001
@@ -430,133 +461,105 @@ class SingleObject:
 
             objD[rows[self.fr]]["setup"]["z"] = self.z
 
-        #if event.key == "1" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 0.00
-        #if event.key == "2" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 0.10
-        #if event.key == "3" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 0.35 
-        #if event.key == "4" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 0.75
-        #if event.key == "5" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 1.50
-        #if event.key == "6" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 2.00
-        #if event.key == "7" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 3.00
-        #if event.key == "8" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 4.00
-        #if event.key == "9" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 5.00
-        #if event.key == "0" and self.shift_is_held:
-        #    objD[rows[self.fr]]["setup"]["z"] = 6.00
+        # Redshift Quality
+        if event.key == "0":
+            self.zq = 0
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
+        if event.key == "1":
+            self.zq = 1
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
+        if event.key == "2":
+            self.zq = 2
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
+        if event.key == "3":
+            self.zq = 3
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
+        if event.key == "4":
+            self.zq = 4
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
+        if event.key == "5":
+            self.zq = 5
+            objD[rows[self.fr]]["setup"]["z"] = self.zq
 
+        # Predefined Redshifts
         if event.key == "!":
-            objD[rows[self.fr]]["setup"]["z"] = 0.00
+            self.z = 0.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "@":
-            objD[rows[self.fr]]["setup"]["z"] = 0.10
+            self.z = 0.10
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "#":
-            objD[rows[self.fr]]["setup"]["z"] = 0.35 
+            self.z = 0.35
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "$":
-            objD[rows[self.fr]]["setup"]["z"] = 0.75
+            self.z = 0.75
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "%":
-            objD[rows[self.fr]]["setup"]["z"] = 1.50
+            self.z = 1.50
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "^":
-            objD[rows[self.fr]]["setup"]["z"] = 2.00
+            self.z = 2.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "&":
-            objD[rows[self.fr]]["setup"]["z"] = 3.00
+            self.z = 3.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "*":
-            objD[rows[self.fr]]["setup"]["z"] = 4.00
+            self.z = 4.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "(":
-            objD[rows[self.fr]]["setup"]["z"] = 5.00
+            self.z = 5.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == ")":
-            objD[rows[self.fr]]["setup"]["z"] = 6.00
-
-        if event.key == "i":
-            # print a bunch of stuff
-            if smf:
-                sobj = objD[rows[self.fr]]["setup"]
-                #print list(sobj)
-                print self.obj
-                print sobj["z"]
-                print sobj["zquality"]
-                print sobj["mflag"]
-                print sobj["features"]
-                print sobj["comments"]
-            print
-        #print
+            self.z = 6.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
 
 
-        ###############################################################
-        # code snippet gratuitously copied and pasted from imacsDisplay
-        ###############################################################
-        #if event.key == "`" and self.shift_is_held:
-        if event.key == "~":
-            # ordered list
-            if mode == "manual":
-                qo = ["row","object","stype","z","flag","comments"]
-                q1 = "\n  %3s %12s %5s %6s %4s %s" % (tuple(qo))
-            elif mode == "auto":
-                qo = ["row","object","stype","z","tplate","status","comments"]
-                q1 = "\n  %3s %12s %5s %6s %8s %6s %s" % (tuple(qo))
-            elif mode == "line":
-                qo = ["row","object","stype","z","flag","features"]
-                q1 = "\n  %3s %12s %5s %6s %4s %s" % (tuple(qo))
-            elif mode == "multiple":
-                qo = ["row","object","stype","z","flag","mflag","comments"]
-                q1 = "\n  %3s %12s %5s %6s %4s %5s %s" % (tuple(qo))
-            qv = len(q1)
-            print q1
-            print "-"*qv
-            for l in range(self.slits):
-                if l: print
-                comments = ""
-                stype = ""
-                z = "auto"
-                tplate = "auto"
-                features = "none"
-        
-                # type dictionary
-                qt = {"row":{IntType:"%5i"}, "object":{StringType:"%12s"},
-                      "stype":{StringType:"%5s"}, "z":{StringType:"%6s",
-                        FloatType:"%.4f"}, "tplate":{ListType:"%8s",
-                        StringType:"%8s"}, "status":{StringType:"%6s"},
-                      "comments":{StringType:"%-30s"}, "flag":{IntType:"%4i"},
-                      "mflag":{IntType:"%5i"}, "features":{StringType:"%-30s"}}
-       
-                # formating output 
-                for q in qo:
-                    qs = objD[rows[l]]["setup"]
-                    qsk = qs[q]  
-                    if type(qsk) is BooleanType:
-                        if qsk is False: exec("%s = %r" % (q,""))
-                    elif qs.has_key(q) and qs[q] not in (None,[]):
-                        qd = qt[q][type(qs[q])].strip('%s-')
-                        # truncate long lines
-                        #if qd.isdigit() and len(str(qs[q])) > int(qd):
-                        if qd.isdigit() and len(str(qs[q])) > int(80-qv+len(q)-1):
-                            ql = str(qs[q])
-                            if type(qs[q]) is StringType: qc = ' '; ex = '...'
-                            if type(qs[q]) is ListType: qc = ','; ex = ','
-        
-                            p = re.compile(qc)
-                            iterator = p.finditer(ql)
-                            for match in iterator:
-                                #if match.start() < int(qd): le = match.start()
-                                if match.start() < int(80-qv+len(q)-1):
-                                    le = match.start()
-                                
-                            qsk = ql[:le]+ex
-                                    
-                        exec("%s = %r" % (q,qsk))
-        
-                for q in qo: print qt[q][type(eval(q))] % eval(q),
-            print
+        if event.key == "C":
+            try:
+                self.comment = raw_input("Enter comment? ")
+                objD[rows[self.fr]]["setup"]["comment"] = self.comment 
+            except:
+                print "Error!"
 
+        if event.key == 'p':
+
+            # cols = ["ra","dec","object","type","z","zq","flag","features", "comment"]
+
+            cols = ["ra","dec","object","z","zq","comment"]
+            fmt  = ["%s","%s","%-18s","%7.4f","%6i","%s"]
+
+            for i in objD:
+                print "%3i" % i,
+
+                for k,j in enumerate(cols):
+                    try:
+                        val = objD[i]["setup"][j]
+                        print fmt[k] % (val),
+                    except:
+                        print " "*6,
+                    #except KeyError:
+                    #    print " "*6,
+                print
 
 
 
         self.display(resetbounds=resetbounds)
+
+    #def on_button_press(self,event):
+    #    #print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' % ('double' if event.dblclick else 'single', event.button, event.x, event.y, event.xdata, event.ydata))
+    #    resetbounds = 0
+    #    
+    #    if event.dblclick:
+    #        try:
+    #            wav_obs = float(raw_input("Enter rest-frame wavelength of line? "))
+    #            self.z = event.xdata/wav_obs - 1
+    #            objD[rows[self.fr]]["setup"]["z"] = self.z
+    #            #self.resetbounds = 1
+    #        except:
+    #            print "Error!"
+    #    
+    #    self.display(resetbounds=resetbounds)
+
 
     def on_key_release(self, event):
         if event.key == 'shift':
@@ -567,6 +570,8 @@ class SingleObject:
     def connect(self):
         # http://matplotlib.org/users/event_handling.html
         'connect to all the events we need'
+        #self.cid_key_press      = self.fig.canvas.mpl_connect(
+        #     'button_press_event', self.on_button_press)
         self.cid_key_press      = self.fig.canvas.mpl_connect(
              'key_press_event', self.on_key_press)
         #self.cid_button_release = self.fig.canvas.mpl_connect(
@@ -585,16 +590,26 @@ class SingleObject:
 #  g_spec.py -smf 021953.SMF -dir 021953
 #  g_spec.py -smf 021953.SMF -dir 021953 --trace 021953.trace
 
-ph1 = os.getenv("PYTHONHOME1")
-#if not ph1: raise "PYTHONHOME1 environmental variable not set!"
+try:
+    ph1 = os.getenv("PYTHONHOME1")
+    if not ph1: raise "PYTHONHOME1 environmental variable not set!"
+    wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
+except:
+    wavefile = None
 
-#wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
-wavefile = None
-
-#spec_i = 0
-#noise_i = 1
+# raw
+spec_i = 0
+noise_i = 1
+# fluxed
 spec_i = 4
 noise_i = 5
+# comparison
+spec_i = 0
+noise_i = 4 # fluxed spectra
+
+
+
+# old format
 #spec_i = 5
 #noise_i = 6
 
@@ -621,24 +636,24 @@ parser.add_argument('--trace', metavar='file', type=str, nargs='?',
 
 #args = parser.parse_args(namespace=)
 args = parser.parse_args()
-print args
+#print args
 #print dir(args)
-print args.__dict__.keys()
+#print args.__dict__.keys()
 
-smf  = args.smf
+smf = args.smf
 fdir = args.dir
-fr   = args.fr
+fr = args.fr
 trace = args.trace
 
 
 
 
 db = simpledb(smf,fdir)
-print db
+#print db
 objD = db.dict["objects"]
 rows = db.row_search()
 #print rows
-for d in objD: print d,objD[d]
+#for d in objD: print d,objD[d]
 
 N = len(rows)
 
@@ -663,11 +678,12 @@ if trace:
     #if type(tfun) is np.ArrayType:
     #    if tfun.shape[0] > 1: ind = 1
     #    elif tfun.shape[0] == 1: ind = 0
-    print type(tfun)
-    print tfun.shape
+    #print type(tfun)
+    #print tfun.shape
 
-objD["trace"] = tfun
-print objD["trace"]
+#objD["trace"] = tfun
+#print objD["trace"]
+db.dict["trace"] = tfun
 
 
 
@@ -681,14 +697,10 @@ for i in plt.rcParams:
 #sys.exit()
 
 fig = plt.figure()
+fig.canvas.set_window_title('g_spec.py')
 #fig = plt.figure(figsize=(10,8))
 SO = SingleObject(fig,fr,N)
 SO.connect()
-#SO.fig.canvas.mpl_connect('key_press_event', SO.on_key_press)
-#SO.fig.canvas.mpl_connect('key_release_event', SO.on_key_release)
-
-#SO.fig.canvas.mpl_connect('key_press_event', SO.on_key)
-
 plt.show()
 
 db.write()

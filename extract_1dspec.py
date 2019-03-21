@@ -458,8 +458,8 @@ print refx
 print refy
 
 fit_orders = True
-user_input = "go"
-#user_input = "done"
+#user_input = "go"
+user_input = "done"
 
 #    if not mark and (testsmf and not orders): user_input = "go"
 #    else: user_input = "done"
@@ -750,12 +750,8 @@ flats_arr = np.array([f[0] for f in flats])
 print flats_arr.shape
 print spectra_arr.shape
 
-fluxed_spectra_arr = np.array([[divz(s[0]/(f[0]/np.sum(f[0]))) for s,f in zip(spectra,flats)],
-                               [divz(s[1]/(f[0]/np.sum(f[0]))) for s,f in zip(spectra,flats)]])
-
-#fluxed_spectra = np.array([divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)])
-#fluxed_spectra = np.array([[divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)], 
-#                           [divz(s,(f/np.sum(f))) for s,f in zip(spectra,flats)]])
+fluxed_spectra_arr = np.array([[divz(s[0]/(f[0]/np.median(f[0]))) for s,f in zip(spectra,flats)],
+                               [divz(s[1]/(f[0]/np.median(f[0]))) for s,f in zip(spectra,flats)]])
 
 print fluxed_spectra_arr.shape
 

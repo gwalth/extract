@@ -56,7 +56,13 @@ class simpledb:
                               "spec2d_sig":self.fdir+"/"+j+"sumsig.fits",
                               "spec2d_sky":self.fdir+"/"+j+"sumsky.fits",
                               "spec2d_ext":self.fdir+"/"+j+"sumext.fits",
-                              "spec1d":self.fdir+"/"+j+"_1dspec.fits"}
+                              "spec1d":self.fdir+"/"+j+"_1dspec.fits",
+                              "type":"",
+                              "features":"",
+                              "z":None,
+                              "zq":None,
+                              "flag":None,
+                              "comment":""}
 
 
     def row_search(self):
