@@ -47,16 +47,17 @@ class simpledb:
 
         r2 = self.dict["objects"]
         for i,j in enumerate(self.smf_ids):
+
             r2[i] = {}
             r2[i]["setup"] = {"object":j,
                               "smf_type":self.smf_type[i],
                               "ra":self.ra[i],
                               "dec":self.dec[i],
-                              "spec2d":self.fdir+"/"+j+"sum.fits",
-                              "spec2d_sig":self.fdir+"/"+j+"sumsig.fits",
-                              "spec2d_sky":self.fdir+"/"+j+"sumsky.fits",
-                              "spec2d_ext":self.fdir+"/"+j+"sumext.fits",
-                              "spec1d":self.fdir+"/"+j+"_1dspec.fits",
+                              #"spec2d":self.fdir+"/"+j+"sum.fits",
+                              #"spec2d_sig":self.fdir+"/"+j+"sumsig.fits",
+                              #"spec2d_sky":self.fdir+"/"+j+"sumsky.fits",
+                              #"spec2d_ext":self.fdir+"/"+j+"sumext.fits",
+                              #"spec1d":self.fdir+"/"+j+"_1dspec.fits",
                               "type":"",
                               "features":"",
                               "z":None,
@@ -64,6 +65,19 @@ class simpledb:
                               "flag":None,
                               "comment":""}
 
+            spec_key = ["spec2d","spec2d_sig","spec2d_sky","spec2d_ext"]
+            spectra = ["sum.fits","sumsig.fits","sumsky.fits","sumext.fits"]
+            spec1d = self.fdir+"/"+j+"_1dspec.fits"
+
+            for k,s in zip(spec_key,spectra):
+                f = self.fdir+"/"+j+s
+                if not os.path.exists(f):
+                    print "Missing file %s!!!" % f
+                    f = None
+                    spec1d = None
+
+                r2[i]["setup"][k] = f
+            r2[i]["setup"]["spec1d"] = spec1d
 
     def row_search(self):
         return self.dict["objects"].keys()

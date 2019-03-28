@@ -423,13 +423,16 @@ class SingleObject:
             new_z = zs[filt]
 
             fig2 = plt.figure()
-            p = fig2.add_subplot(111)
-            p.hist(new_z,bins)
-            p.text(0.0,1.025,"N = %i" % (len(new_z)), transform=p.transAxes)
-            p.text(0.9,1.025,"zq > %i " % (zq_th), transform=p.transAxes)
-            p.set_xlabel("Redshift z")
-            plt.show()
+            fig2.canvas.set_window_title(fdir)
+            p2 = fig2.add_subplot(111)
+            p2.hist(new_z,bins)
+            p2.text(0.0,1.025,"N = %i" % (len(new_z)), transform=p2.transAxes)
+            p2.text(0.9,1.025,"zq > %i " % (zq_th), transform=p2.transAxes)
+            p2.set_xlabel("Redshift z")
 
+            #plt.draw()
+            plt.show()
+   
         if event.key == "Z":
             try:
                 self.z = float(raw_input("Enter redshift? "))
@@ -464,22 +467,22 @@ class SingleObject:
         # Redshift Quality
         if event.key == "0":
             self.zq = 0
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
         if event.key == "1":
             self.zq = 1
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
         if event.key == "2":
             self.zq = 2
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
         if event.key == "3":
             self.zq = 3
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
         if event.key == "4":
             self.zq = 4
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
         if event.key == "5":
             self.zq = 5
-            objD[rows[self.fr]]["setup"]["z"] = self.zq
+            objD[rows[self.fr]]["setup"]["zq"] = self.zq
 
         # Predefined Redshifts
         if event.key == "!":
@@ -541,6 +544,29 @@ class SingleObject:
                     #    print " "*6,
                 print
 
+        if event.key == 'X':
+
+            reg_f = "tmp.reg"
+            f = open(reg_f,"w")
+            f.write("fk5\n")
+            for i in objD:
+                ra = objD[i]["setup"]["ra"]
+                dec = objD[i]["setup"]["dec"]
+                z = objD[i]["setup"]["z"]
+                comment = objD[i]["setup"]["comment"]
+
+                if z: z_str = "%.3f" % z
+                else: z_str = "" 
+                if comment: comment_str = "%s" % comment
+                else: comment_str = "" 
+
+
+
+                f.write('circle(%s,%s,1") # text={%s}\n' % (ra,dec,z_str))
+                f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
+            f.close
+
+            os.system('xpaset -p ds9 regions load all tmp.reg &')
 
 
         self.display(resetbounds=resetbounds)
@@ -601,11 +627,11 @@ except:
 spec_i = 0
 noise_i = 1
 # fluxed
-spec_i = 4
-noise_i = 5
+#spec_i = 4
+#noise_i = 5
 # comparison
-spec_i = 0
-noise_i = 4 # fluxed spectra
+#spec_i = 0
+#noise_i = 4 # fluxed spectra
 
 
 

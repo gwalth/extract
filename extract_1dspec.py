@@ -224,7 +224,14 @@ def getdata(r,refobjs,ext=0,plot=0):
     ff = objS["spec2d_ext"]
     id = objS["object"]
 
-    pfs = pyfits.open(f)
+    try:
+        pfs = pyfits.open(f)
+    except:
+        print "Missing file %s!!!" % f
+        D = {"id":id,"pos":None,"shift":True,"head":None,"data":None,
+             "ref":None,"flux":None}
+        return D
+
     spec2d = pfs[ext].data
     head = pfs[ext].header
     objold = head["objold"]
@@ -356,35 +363,38 @@ parser = argparse.ArgumentParser(description='Extract 1d spectra')
 
 parser.add_argument('-smf', metavar='file', type=str, nargs='?',
                     default=None,help='SMF file')
-parser.add_argument('-dir', metavar='file', type=str, nargs='?',
+parser.add_argument('-dir', metavar='path/to/dir', type=str, nargs='?',
                     default=None,help='directory of 2d spectra')
 #parser.add_argument('-mark', metavar='file', type=bool, nargs='?',
 #                    default=None,help='manually mark the object positions')
-#parser.add_argument('--trace-order', metavar='order of trace', type=int, nargs='?',
-#                    default=2,help='order of trace of atmospheric dispersion (global)')
-#parser.add_argument('--trace-all', metavar='order of trace', type=int, nargs='?',
-#                    default=2,help='trace all objects to for atmospheric dispersion (not reference objects)')
+parser.add_argument('--trace-order', metavar='order of trace', type=int, nargs='?',
+                    default=2,help='order of trace of atmospheric dispersion (global)')
+parser.add_argument('--edge', metavar='pixels', type=float, nargs='?',
+                    default=6.0,help='edge of the slit to exclude position fits [pixels]')
+parser.add_argument('--trace-all', action="store_true",
+                    help='trace all objects to for atmospheric dispersion (not reference objects)')
 #parser.add_argument('--trace-ind', metavar='order of trace', type=int, nargs='?',
 #                    default=2,help='trace each individual object (all) for atmospheric dispersion')
-parser.add_argument('-o', metavar='order x, order y', type=int, nargs=2,
+parser.add_argument('-o', metavar='order', type=int, nargs=2,
                     help="orders of fit to objects positions on the mask")
-parser.add_argument('-a', metavar='aperture int', type=int, nargs=1, default=10,
-                    help="default aperture to extract 1D spectra")
+parser.add_argument('-a', metavar='aperture', type=int, nargs=1, default=10,
+                    help="default aperture to extract 1D spectra [integer]")
 
 args = parser.parse_args()
 
 smf  = args.smf
 fdir = args.dir
-orders = args.o
 aper = args.a
+edge = args.edge
+orders = args.o
+trace_all = args.trace_all
+trace_order = args.trace_order
 
 sw = 10
-trace_order = 2
-trace_all = 0
+
 trace_ind = 0
 trace_th = 2.0
 flux_cut = 0.0
-edge = 6.0
 no_find = 0 # skip finding object positions
 mark = 0
 
@@ -598,12 +608,13 @@ basis_fns = [xb*yb for xb in lxb for yb in lyb]
 
 dpos = dot(sol,basis_fns)
 for d in D:
-    j = smf_ids.index(d["id"])
-    # original positions
-    d["orig_pos"] = 1*d["pos"]
-    if not mark and not no_find:
-        # new positions
-        d["pos"] = d["pos"] + dpos[j]
+    if d["pos"] != None:
+        j = smf_ids.index(d["id"])
+        # original positions
+        d["orig_pos"] = 1*d["pos"]
+        if not mark and not no_find:
+            # new positions
+            d["pos"] = d["pos"] + dpos[j]
 
 # Trace atmospheric dispersion
 for d in D:
@@ -722,7 +733,7 @@ t.close()
 
  
 print "Starting extractions"
-spectra = [Etrace(d["id"],(d["data"]["spec2d"],d["data"]["noise2d"]),d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=trace_th,shift=not no_find and d["shift"],f=False,edge=edge) for k,d in enumerate(D)]
+spectra = [Etrace(d["id"],(d["data"]["spec2d"],d["data"]["noise2d"]),d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=trace_th,shift=not no_find and d["shift"],f=False,edge=edge) for k,d in enumerate(D) if d["data"] != None]
 print
 # spectra, noise
 
@@ -739,12 +750,12 @@ print spectra_arr.shape
 
 # Sky Extractions
 print "Starting sky extractions"
-skys = [Etrace(d["id"],d["data"]["sky2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D)]
+skys = [Etrace(d["id"],d["data"]["sky2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D) if d["data"] != None]
 skys_arr = np.array([s[0] for s in skys])
 
 ## Flattened-Flatfield Extractions
 print "Starting flat extractions"
-flats = [Etrace(d["id"],d["data"]["flat2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D)]
+flats = [Etrace(d["id"],d["data"]["flat2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D) if d["data"] != None]
 flats_arr = np.array([f[0] for f in flats])
 
 print flats_arr.shape
@@ -763,30 +774,33 @@ print all_extractions.shape
 
 
 # individual 1dspec FITS files
-for k,d in enumerate(D):
-    id = d["id"]
-    head = d["head"]
-    spectrum = all_extractions[::,k,::]
-
-    nf = fdir + "/" + id + "_1dspec.fits"
-
-    new_head = head.copy()
-    #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
-    #new_head["extrpos"] = 1. + Sp[k] - d["pos"]
-    #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
-    new_head["extrpos"] = (Sp[k],"1D extracted position of spectrum, in pixels")
-    new_head["aper"] = (d["ap"],"aperture size, diameter in pixels")
-
-    new_head["ARRAY1"] = ("SPECTRUM","units of counts")
-    new_head["ARRAY2"] = ("NOISE","units of counts")
-    new_head["ARRAY3"] = ("SKY","units of counts")
-    new_head["ARRAY4"] = ("RAW FLATS","units of counts")
-    new_head["ARRAY5"] = ("FLUXED SPECTRUM","units of counts")
-    new_head["ARRAY6"] = ("FLUXED NOISE","units of counts")
-
-    hdu = pyfits.PrimaryHDU(spectrum,header=new_head)
-    #hdu = pyfits.PrimaryHDU(spectrum)
-    hdu.writeto(nf,clobber=True)
+k = 0
+for d in D:
+    if d["data"] != None:
+        id = d["id"]
+        head = d["head"]
+        spectrum = all_extractions[::,k,::]
+        
+        nf = fdir + "/" + id + "_1dspec.fits"
+        
+        new_head = head.copy()
+        #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
+        #new_head["extrpos"] = 1. + Sp[k] - d["pos"]
+        #new_head["extrold"] = 1. + Sp[k] - d["orig_pos"]
+        new_head["extrpos"] = (Sp[k],"1D extracted position of spectrum, in pixels")
+        new_head["aper"] = (d["ap"],"aperture size, diameter in pixels")
+        
+        new_head["ARRAY1"] = ("SPECTRUM","units of counts")
+        new_head["ARRAY2"] = ("NOISE","units of counts")
+        new_head["ARRAY3"] = ("SKY","units of counts")
+        new_head["ARRAY4"] = ("RAW FLATS","units of counts")
+        new_head["ARRAY5"] = ("FLUXED SPECTRUM","units of counts")
+        new_head["ARRAY6"] = ("FLUXED NOISE","units of counts")
+        
+        hdu = pyfits.PrimaryHDU(spectrum,header=new_head)
+        #hdu = pyfits.PrimaryHDU(spectrum)
+        hdu.writeto(nf,clobber=True)
+        k += 1
 
 #        
 #        #########################
