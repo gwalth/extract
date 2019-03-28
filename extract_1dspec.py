@@ -700,7 +700,7 @@ for tr in trace:
 
 tfun = np.asarray(tfun)
 #db.dict["trace"] = tfun
-#db.write()
+db.write()
 
 #print tfun.shape
 t = open(fdir + ".trace","wb")
