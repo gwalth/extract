@@ -7,19 +7,44 @@ from types import *
 import argparse
 import cPickle
 
-from astropy.convolution import convolve, Box1DKernel
-import pyfits
+from astropy.convolution import convolve, Box1DKernel, Box2DKernel
+#import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 import matplotlib
-#print matplotlib.__version__
-#matplotlib.use('TkAgg') # segmentation fault
+print matplotlib.__version__
+
+
+# works!
+matplotlib.use('Qt5Agg')
+from PyQt5.QtCore import pyqtRemoveInputHook
+pyqtRemoveInputHook()
+# fixes the following:
+#  QCoreApplication::exec: The event loop is already running
+# during raw_input
+
+
+# Frameworks builds?
 #matplotlib.use('WXAgg')
 #matplotlib.use('WX')
+
+# doesn't work
+#matplotlib.use('macosx')
+
+# now fails
+#matplotlib.use('TkAgg') # segmentation fault/ crashes gui/ broken now?
+
 import matplotlib.pyplot as plt
+
+#from matplotlib.widgets import TextBox
+
+from matplotlib import patches
 #plt.switch_backend('macosx')  # seems to work better with the mac
 import matplotlib.cm as cm
+from matplotlib.widgets import TextBox
 
 
+from image_utils import rebin2D_sum
 #from math_utils import MAD
 #from algorithms import rect_smooth, tri_smooth
 
@@ -68,6 +93,8 @@ class SingleObject:
         self.control_is_held = True
         self.smooth = 1
         self.comment = ""
+        self.verb = 1
+        self.mask = 1
 
         self.trace = 0
         self.tfun = None
@@ -84,6 +111,7 @@ class SingleObject:
             self.tfun = db.dict["trace"]
 
             self.z = self.setup_obj["z"] 
+            self.zq = self.setup_obj["zq"] 
 
             f1d = self.setup_obj["spec1d"]
             f2d = self.setup_obj["spec2d"]
@@ -106,7 +134,7 @@ class SingleObject:
             if self.dc_flag: self.w = np.power(10,self.w)
             #print self.w
             
-            print self.spec1d.shape
+            #print self.spec1d.shape
             #print self.spec1d[spec_i,:].shape
             #print self.spec1d[spec_i,self.fr,:].shape
             #print self.spec1d[spec_i,self.fr,:]
@@ -118,11 +146,12 @@ class SingleObject:
             self.extrpos = header["extrpos"]
             self.aper = header["aper"]
             if self.extrpos == "N/A": self.extrpos = self.extrold
+            #print self.objpos,self.extrpos,self.aper
             
             pf2d = pyfits.open(f2d,ignore_missing_end=1)
             self.big = pf2d[0].data
             self.header = pf2d[0].header
-            #print self.big.shape
+            print self.big.shape
 
             #self.ya    = self.header['CSECT%0dA' % (self.fr+1)]
             #self.yb    = self.header['CSECT%0dB' % (self.fr+1)]
@@ -140,6 +169,7 @@ class SingleObject:
             rect_spec = rect_smooth(self.spec)
             tri_spec = tri_smooth(self.spec)
             self.smooth_spec = tri_spec
+            self.smooth_img = self.img
 
             self.bounds()
 
@@ -153,6 +183,15 @@ class SingleObject:
         # [x0, y0, xwidth, ywidth]
         self.ax1 = plt.axes([0.1, 0.7, 0.8, 0.2])
         self.ax2 = plt.axes([0.1, 0.1, 0.8, 0.6], sharex=self.ax1)
+
+
+        # working with making text box
+        #axbox = plt.axes([0.1, -0.1, 0.8, 0.075])
+        #initial_text=""
+        #text_box = TextBox(axbox, 'Evaluate', initial=initial_text)
+        #text_box.on_submit(submit)
+
+
         # link xaxis together for zoom
 
         #print self.big[self.ya:self.yb,:].shape
@@ -166,16 +205,15 @@ class SingleObject:
         #print self.img.shape
         #print self.spec.shape
 
-        #self.ax1.imshow(self.big[self.ya:self.yb,self.x0:self.x1],
-        self.ax1.imshow(self.img[:,self.x0:self.x1], origin='lower',
+        #self.ax1.imshow(self.img[:,self.x0:self.x1], origin='lower',
+        #                interpolation="nearest", cmap=cm.gray_r,
+        #                vmin=self.v0, vmax=self.v1, aspect="auto",
+        #                extent=(self.w0,self.w1,0,self.img.shape[0]))
+        self.ax1.imshow(self.smooth_img[:,self.x0:self.x1], origin='lower',
                         interpolation="nearest", cmap=cm.gray_r,
                         vmin=self.v0, vmax=self.v1, aspect="auto",
                         extent=(self.w0,self.w1,0,self.img.shape[0]))
 
-        #self.ax1.imshow(self.big[self.ya:self.yb,self.x0:self.x1],
-        #                interpolation="nearest", cmap=cm.gray_r,
-        #                vmin=self.v0, vmax=self.v1, aspect="auto",
-        #                extent=(self.x0,self.x1,self.ya,self.yb))
 
         plt.setp(self.ax1.get_xticklabels(), visible=False)
 
@@ -210,7 +248,9 @@ class SingleObject:
                       transform=self.ax1.transAxes)
         if self.redshift and type(self.z) is not NoneType:
             self.display_redshift()
-            self.ax1.text(0.85,1.1,"z = %.4f" % self.z,
+            self.ax1.text(0.70,1.1,"z = %.4f" % self.z,
+                          transform=self.ax1.transAxes)
+            self.ax1.text(0.90,1.1,"zq = %r" % self.zq,
                           transform=self.ax1.transAxes)
 
         if self.trace and self.tfun is not NoneType:
@@ -222,7 +262,17 @@ class SingleObject:
 
         #print self.v0,self.v1
 
+        if self.mask:
+            self.mask_atmos()
+
+
+        # text box prototype (work in progress)
+        #self.comment = objD[rows[self.fr]]["setup"]["comment"]
+        #self.text_box = TextBox(ax2, 'Comment', initial=self.comment)
+        #self.text_box.on_submit(submit)
+
         plt.draw()
+        #self.fig.canvas.draw()
 
     def display_trace(self):
 
@@ -231,6 +281,8 @@ class SingleObject:
         self.ax1.plot(self.w, self.extrpos + self.tfun[0]+self.aper/2.0,"--",color="w")
         #self.ax1.plot(self.w, self.extrold + self.tfun[0],"--",color="y")
         self.ax1.plot(self.w, self.objpos + self.tfun[0],"--",color="b")
+
+
 
     def display_redshift(self):
         dw = (self.w1-self.w0)/200.
@@ -247,6 +299,42 @@ class SingleObject:
                     horizontalalignment='center',
                     verticalalignment='center',)
 
+#axbox = plt.axes([0.1, 0.05, 0.8, 0.075])
+#text_box = TextBox(axbox, 'Evaluate', initial=initial_text)
+#text_box.on_submit(submit)
+
+
+    def mask_atmos(self):
+        Aband = [7580,7700]    
+        Bband = [6850,6950]
+        Atmos = [Aband, Bband]
+
+        for band in Atmos:
+            #print band
+
+            w0,w1 = band
+        
+            yh = self.y1-self.y0
+            xw = w1-w0
+            
+            #xc = (w0+w1)/2.
+            #yc = (y0+y1)/2.
+        
+            #print xc,yc
+            #print xw,yh
+        
+            self.ax2.add_patch(patches.Rectangle(
+                                           (w0, self.y0),   # (x,y)
+                                            xw,          # width
+                                            yh,          # height
+                                            facecolor = "0.9",
+                                            edgecolor = "0.9",
+                                            zorder=5,
+                                            alpha=0.85,
+                                         )
+                       )
+         
+        
     def bounds(self):
         sigma = 5
 
@@ -288,7 +376,8 @@ class SingleObject:
 
         #print event.key
         # test key events
-        self.on_key(event)
+        if self.verb:
+            self.on_key(event)
 
         resetbounds = 0
         zf = 2.0
@@ -355,6 +444,26 @@ class SingleObject:
         if event.key == 'B':
             val = int(raw_input("Enter the boxcar width? "))
             self.smooth_spec = convolve(self.spec, Box1DKernel(val))
+            self.smooth_img = convolve(self.img,  Box2DKernel(val))
+
+        if event.key == 'R':
+            binx,biny = map(int, raw_input("Enter the rebinning (x,y)? ").split(',') )
+            print binx,biny
+
+            yl,xl = self.img.shape
+
+            if xl % binx: nx = xl/binx
+            else: nx = xl/binx
+
+            if yl % biny: ny = yl/biny
+            else: ny = yl/biny
+            #print
+
+            #print nx,ny
+            
+
+            self.smooth_img = rebin2D_sum(self.img[:ny*biny,:nx*binx],(ny,nx))
+
 
         if event.key == 'T':
             if self.trace: self.trace = 0
@@ -432,6 +541,56 @@ class SingleObject:
 
             #plt.draw()
             plt.show()
+
+        if event.key == "H":
+            zq_th = 1
+            bins = 20
+
+            zs = np.array([objD[i]["setup"]["z"] for i in objD])
+            zqs = np.array([objD[i]["setup"]["zq"] for i in objD])
+
+            filt = (zs != np.array(None))*(zqs != np.array(None))*((zqs > zq_th))
+
+            new_z = zs[filt]
+
+            fig2 = plt.figure()
+            fig2.canvas.set_window_title(fdir)
+            p2 = fig2.add_subplot(111)
+            p2.hist(new_z,bins)
+            p2.text(0.0,1.025,"N = %i" % (len(new_z)), transform=p2.transAxes)
+            p2.text(0.9,1.025,"zq > %i " % (zq_th), transform=p2.transAxes)
+            p2.set_xlabel("Redshift z")
+
+            #plt.draw()
+            plt.show()
+
+
+        if event.key == "M":
+           print "Mark new position"
+           print objD[rows[self.fr]]
+           print xc, yc
+           #os.system('extract_1dspec.py -dir %s -smf %s -obj %s -pos %s' % (fdir,smf,obj,pos))
+           print
+
+        if event.key == "A":
+           print "Adjust aperture"
+           val = int(raw_input("Enter new aperture (FWHM) in pixels? "))
+           print objD[rows[self.fr]]
+           print xc, yc
+           #os.system('extract_1dspec.py -dir %s -smf %s -obj %s -ap %s' % (fdir,smf,obj,ap))
+           print
+
+        if event.key == "E":
+           choice = "Extract additional object at %.1f? (y/n)" % (yc)
+
+           if choice == "y":
+               aper = int(raw_input("Enter new aperture (FWHM) in pixels? "))
+               print objD[rows[self.fr]]
+               print xc, yc
+               #os.system('extract_1dspec.py -dir %s -smf %s -newobj %s' % (fdir,smf,obj))
+               print
+
+
    
         if event.key == "Z":
             try:
@@ -445,75 +604,98 @@ class SingleObject:
             print "Quiting..."
             db.write()
             sys.exit()
+
+        #if event.key in ["[","]"] and wlist and self.redshift:
+        if event.key in "[];',.{}" and wlist and self.redshift:
+            self.z = self.setup_obj["z"]
+            if type(self.z) is NoneType: self.z = 0
+
+            if event.key == "[": self.z -=0.1
+            if event.key == "]": self.z +=0.1
+            if event.key == ";": self.z -=0.01
+            if event.key == "'": self.z +=0.01
+            if event.key == ",": self.z -=0.001
+            if event.key == ".": self.z +=0.001
+            if event.key == "{": self.z -=0.0001
+            if event.key == "}": self.z +=0.0001
+
+            objD[rows[self.fr]]["setup"]["z"] = self.z
             
-        if event.key in ["[","]"] and wlist and self.redshift:
-            self.z = self.setup_obj["z"]
-            if type(self.z) is NoneType: self.z = 0
+        #if event.key in ["[","]"] and wlist and self.redshift:
+        #    self.z = self.setup_obj["z"]
+        #    if type(self.z) is NoneType: self.z = 0
 
-            if event.key == "[": self.z -=0.01
-            if event.key == "]": self.z +=0.01
+        #    if event.key == "[": self.z -=0.01
+        #    if event.key == "]": self.z +=0.01
 
-            objD[rows[self.fr]]["setup"]["z"] = self.z
+        #    objD[rows[self.fr]]["setup"]["z"] = self.z
 
-        if event.key in ["{","}"] and wlist and self.redshift:
-            self.z = self.setup_obj["z"]
-            if type(self.z) is NoneType: self.z = 0
+        #if event.key in ["{","}"] and wlist and self.redshift:
+        #    self.z = self.setup_obj["z"]
+        #    if type(self.z) is NoneType: self.z = 0
 
-            if event.key == "{": self.z -=0.001
-            if event.key == "}": self.z +=0.001
+        #    if event.key == "{": self.z -=0.001
+        #    if event.key == "}": self.z +=0.001
 
-            objD[rows[self.fr]]["setup"]["z"] = self.z
+        #    objD[rows[self.fr]]["setup"]["z"] = self.z
 
         # Redshift Quality
-        if event.key == "0":
-            self.zq = 0
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
-        if event.key == "1":
-            self.zq = 1
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
-        if event.key == "2":
-            self.zq = 2
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
-        if event.key == "3":
-            self.zq = 3
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
-        if event.key == "4":
-            self.zq = 4
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
-        if event.key == "5":
-            self.zq = 5
-            objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "0":
+        #    self.zq = 0
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "1":
+        #    self.zq = 1
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "2":
+        #    self.zq = 2
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "3":
+        #    self.zq = 3
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "4":
+        #    self.zq = 4
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+        #if event.key == "5":
+        #    self.zq = 5
+        #    objD[rows[self.fr]]["setup"]["zq"] = self.zq
+
+        if event.key == "q":
+            try:
+                self.zq = raw_input("Enter z-quality? ")
+                objD[rows[self.fr]]["setup"]["zq"] = int(self.zq)
+            except:
+                print "Error!"
 
         # Predefined Redshifts
-        if event.key == "!":
+        if event.key == ")":
             self.z = 0.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
+        if event.key == "!":
+            self.z = 1.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
         if event.key == "@":
-            self.z = 0.10
-            objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "#":
-            self.z = 0.35
-            objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "$":
-            self.z = 0.75
-            objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "%":
-            self.z = 1.50
-            objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "^":
             self.z = 2.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "&":
+        if event.key == "#":
             self.z = 3.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "*":
+        if event.key == "$":
             self.z = 4.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == "(":
+        if event.key == "%":
             self.z = 5.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
-        if event.key == ")":
+        if event.key == "^":
             self.z = 6.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
+        if event.key == "&":
+            self.z = 7.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
+        if event.key == "*":
+            self.z = 8.00
+            objD[rows[self.fr]]["setup"]["z"] = self.z
+        if event.key == "(":
+            self.z = 9.00
             objD[rows[self.fr]]["setup"]["z"] = self.z
 
 
@@ -524,14 +706,25 @@ class SingleObject:
             except:
                 print "Error!"
 
+        if event.key == "S":
+            try:
+                self.spectrum = raw_input("Classify spectrum? (e.g. C, E, C+A, C+E, C+A+E) ")
+                objD[rows[self.fr]]["setup"]["spectrum"] = self.spectrum
+            except:
+                print "Error!"
+
         if event.key == 'p':
 
             # cols = ["ra","dec","object","type","z","zq","flag","features", "comment"]
 
-            cols = ["ra","dec","object","z","zq","comment"]
-            fmt  = ["%s","%s","%-18s","%7.4f","%6i","%s"]
+            cols = ["ra","dec","object","z","zq","spectrum","comment"]
+            fmt  = ["%s","%s","%-18s","%7.4f","%6i","%-6s","%s"]
 
             for i in objD:
+
+                # test output
+                # print objD[i]["setup"]
+
                 print "%3i" % i,
 
                 for k,j in enumerate(cols):
@@ -546,13 +739,16 @@ class SingleObject:
 
         if event.key == 'X':
 
-            reg_f = "tmp.reg"
+
+
+            reg_f = "redshifts.reg"
             f = open(reg_f,"w")
             f.write("fk5\n")
             for i in objD:
                 ra = objD[i]["setup"]["ra"]
                 dec = objD[i]["setup"]["dec"]
                 z = objD[i]["setup"]["z"]
+                zq = objD[i]["setup"]["zq"]
                 comment = objD[i]["setup"]["comment"]
 
                 if z: z_str = "%.3f" % z
@@ -560,13 +756,16 @@ class SingleObject:
                 if comment: comment_str = "%s" % comment
                 else: comment_str = "" 
 
+                colors = ["green","yellow","red"]
+                if zq > len(colors)-1 or zq < 0: zq = 0
+                color = colors[zq]
 
 
-                f.write('circle(%s,%s,1") # text={%s}\n' % (ra,dec,z_str))
+                f.write('circle(%s,%s,2") # text={%s} color=%s\n' % (ra,dec,z_str,color))
                 f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
             f.close
 
-            os.system('xpaset -p ds9 regions load all tmp.reg &')
+            #os.system('xpaset -p ds9 regions load all %s &' % reg_f)
 
 
         self.display(resetbounds=resetbounds)
@@ -612,6 +811,7 @@ class SingleObject:
     #    self.display(resetbounds=resetbounds)
 
 
+
 # e.g
 #  g_spec.py -smf 021953.SMF -dir 021953
 #  g_spec.py -smf 021953.SMF -dir 021953 --trace 021953.trace
@@ -649,6 +849,8 @@ parser = argparse.ArgumentParser(description='Display 1d and 2d spectra.')
 #                    help='1d spectra')
 #parser.add_argument('-2d', metavar='file', type=str, nargs='?',
 #                    help='2d spectra')
+parser.add_argument('prefix', metavar='file', type=str, nargs='?',
+                    default=None,help='prefix for SMF/save/trace files')
 parser.add_argument('-smf', metavar='file', type=str, nargs='?',
                     default=None,help='SMF file')
 parser.add_argument('-fr', metavar='frame', type=int, nargs='?',
@@ -666,10 +868,26 @@ args = parser.parse_args()
 #print dir(args)
 #print args.__dict__.keys()
 
-smf = args.smf
-fdir = args.dir
+prefix = args.prefix
+
+if prefix != None:
+    smf = prefix + ".SMF"
+    fdir = prefix
+    trace = prefix + ".trace"
+else:
+    smf = args.smf
+    fdir = args.dir
+    if smf == None and fdir == None:
+       print "Need at least one argument!"
+       sys.exit()
+
+    trace = args.trace
+
+
+print prefix
+
+
 fr = args.fr
-trace = args.trace
 
 
 
@@ -678,8 +896,9 @@ db = simpledb(smf,fdir)
 #print db
 objD = db.dict["objects"]
 rows = db.row_search()
-#print rows
-#for d in objD: print d,objD[d]
+print rows
+for d in objD: print d,objD[d]
+print objD[0]['setup'].keys()
 
 N = len(rows)
 
@@ -697,15 +916,25 @@ else:
 tfun = None
 ind = 0
 if trace:
-    tfun = cPickle.load(open(trace))
-    # Compatability mode (older version)
-    #if type(tfun) is ListType: ind = 0
-    # Temporary mode, future mode to be added to fs
-    #if type(tfun) is np.ArrayType:
-    #    if tfun.shape[0] > 1: ind = 1
-    #    elif tfun.shape[0] == 1: ind = 0
-    #print type(tfun)
-    #print tfun.shape
+    if trace[-6:] == ".trace":
+        tfun = cPickle.load(open(trace))
+        # Compatability mode (older version)
+        #if type(tfun) is ListType: ind = 0
+        # Temporary mode, future mode to be added to fs
+        #if type(tfun) is np.ArrayType:
+        #    if tfun.shape[0] > 1: ind = 1
+        #    elif tfun.shape[0] == 1: ind = 0
+        #print type(tfun)
+        #print tfun.shape
+
+    elif trace[-5:] == ".fits":
+        pf = pyfits.open(trace,ignore_missing_end=1)
+        tfun = [pf[0].data]
+        #print trace[-5:]
+        #print tfun
+
+    else:
+        print "trace format not supported"
 
 #objD["trace"] = tfun
 #print objD["trace"]
@@ -722,13 +951,122 @@ for i in plt.rcParams:
 
 #sys.exit()
 
+#plt.ion()
+
 fig = plt.figure()
 fig.canvas.set_window_title('g_spec.py')
 #fig = plt.figure(figsize=(10,8))
 SO = SingleObject(fig,fr,N)
 SO.connect()
 plt.show()
+#plt.draw()
+
+
+
+
+# convert to FITS
+objD = db.dict["objects"]
+rows = db.row_search()
+#print rows
+
+row = []
+id = []
+oclass = []
+redshift = []
+quality = []
+comment = []
+extpos = []
+extaper = []
+extflag = []
+alignbox = []
+
+
+print
+print
+print
+print
+print
+
+for i,d in enumerate(objD): 
+
+    row.append(i+1)
+    id.append(objD[d]["setup"]["object"])
+
+    if objD[d]["setup"]["smf_type"] == "SLIT": 
+        oclass.append("galaxy")
+    elif objD[d]["setup"]["smf_type"] == "HOLE": 
+        oclass.append("star")
+
+    if objD[d]["setup"]["z"] == None:
+        redshift.append(0)
+    else:
+        redshift.append(objD[d]["setup"]["z"])
+
+    if objD[d]["setup"]["zq"] == None:
+        quality.append(0)
+    else:
+        quality.append(objD[d]["setup"]["zq"])
+
+
+    comment.append(objD[d]["setup"]["comment"])
+ 
+    #print d,objD[d]
+
+    f1d = objD[d]["setup"]["spec1d"]
+    if f1d == None:
+        extpos.append(-99)
+        extaper.append(-99)
+    else:
+        pf1d = pyfits.open(f1d,ignore_missing_end=1)
+        head = pf1d[0].header
+    
+        extpos.append(head["EXTRPOS"])
+        extaper.append(head["APER"])
+
+    extflag.append(False)
+    alignbox.append(False)
+
+#print objD[0]['setup'].keys()
+
+
+#print row
+#print id 
+#print oclass
+#print redshift
+#print quality
+#print comment
+#print extpos
+#print extaper
+#print extflag
+#print alignbox
+
+fits_output = fdir.replace("/","") + "_objects.fits"
+
+# FITS table format
+#row id class redshift quality comment extpos extaper extflag alignbox
+col1 = pyfits.Column(name='row', format='K', array=np.array(row))
+col2 = pyfits.Column(name='id', format='20A', array=id)
+col3 = pyfits.Column(name='class', format='6A', array=oclass)
+col4 = pyfits.Column(name='redshift', format='D', array=np.array(redshift))
+col5 = pyfits.Column(name='quality', format='K', array=np.array(quality))
+col6 = pyfits.Column(name='comment', format='100A', array=comment)
+col7 = pyfits.Column(name='extpos', format='D', array=np.array(extpos))
+col8 = pyfits.Column(name='extaper', format='D', array=np.array(extaper))
+col9 = pyfits.Column(name='extflag', format='L', array=extflag)
+col10 = pyfits.Column(name='alignbox', format='L', array=alignbox)
+
+cols = pyfits.ColDefs([col1, col2, col3, col4, col5, col6, col7, col8, col9, col10])
+
+hdu = pyfits.BinTableHDU.from_columns(cols)
+#hdu = pyfits.BinTableHDU.from_columns([col1, col2, col3, col4, col5, col6, col7, col8, col9, col10])
+hdu.writeto(fits_output,clobber=True)
+
+
+
+
+
+
+
+
 
 db.write()
-
-

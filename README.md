@@ -1,7 +1,7 @@
 # spectral 1D extraction
 
 ## Requirements:
-* CarPy
+* CarPy 
 
 ## Usage examples:
 
@@ -24,17 +24,22 @@ Run the spectral viewer
 | sdbf | sharper/duller/brighter/fainter |
 | g | go to frame? |
 | r | reset display |
+| R | rebinning (x,y)? |
 | z | turn on/off redshift lines display |
 | Z | enter redshift? |
 | H | plot redshift histogram |
 | B | boxcar width? |
-| 012345 | redshift quality |
-| [] | increment/decrement redshift by 0.01 |
-| {} | increment/decrement redshift by 0.001 |
+| [] | increment/decrement redshift by 0.1 |
+| ;' | increment/decrement redshift by 0.01 |
+| ,. | increment/decrement redshift by 0.001 |
+| {} | increment/decrement redshift by 0.0001 |
 | C | enter comment? |
+| S | classify spectrum? |
 | p | print all object information |
 | w | enter wavelength of line cursor is over? |
 | T | display trace (if loaded) |
+| q | z-quality? |
+| X | create ds9 region file for redshifts |
 | Q | save and quit |
 
 
