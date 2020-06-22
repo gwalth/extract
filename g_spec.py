@@ -13,6 +13,7 @@ import astropy.io.fits as pyfits
 import numpy as np
 import matplotlib
 print matplotlib.__version__
+from scipy import integrate
 
 
 # works!
@@ -44,11 +45,31 @@ import matplotlib.cm as cm
 from matplotlib.widgets import TextBox
 
 
-from image_utils import rebin2D_sum
+#from image_utils import rebin2D_sum
 #from math_utils import MAD
 #from algorithms import rect_smooth, tri_smooth
 
 from simpledb import simpledb
+
+def rebin2D_sum(a, shape):
+    #print shape
+    #print a.shape[0]
+    #print a.shape[0]//shape[0]
+    # 2D
+    sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]
+    return a.reshape(sh).sum(-1).sum(1)
+
+# from functons
+def poly_n(p, data, x):
+    p = np.array(p)
+    if type(x) == np.FloatType: y = 0
+    else: y = np.zeros((x.shape[0],))
+    for n in np.arange(p.shape[0]):
+        y += p[n]*x**n
+    return y - data
+
+def poly_x(x,p):
+    return poly_n(p, 0, x)
 
 def rect_smooth(y):
     j = 1
@@ -91,6 +112,10 @@ class SingleObject:
         self.zq = None
         self.shift_is_held = False
         self.control_is_held = True
+        self.sum_mode = "flux"
+        self.s_is_held = False
+        self.g_is_held = False
+        self.window = []
         self.smooth = 1
         self.comment = ""
         self.verb = 1
@@ -272,6 +297,7 @@ class SingleObject:
         #self.text_box.on_submit(submit)
 
         plt.draw()
+        #plt.ion()
         #self.fig.canvas.draw()
 
     def display_trace(self):
@@ -706,12 +732,97 @@ class SingleObject:
             except:
                 print "Error!"
 
-        if event.key == "S":
-            try:
-                self.spectrum = raw_input("Classify spectrum? (e.g. C, E, C+A, C+E, C+A+E) ")
-                objD[rows[self.fr]]["setup"]["spectrum"] = self.spectrum
-            except:
-                print "Error!"
+        #if event.key == "S":
+        #    try:
+        #        self.spectrum = raw_input("Classify spectrum? (e.g. C, E, C+A, C+E, C+A+E) ")
+        #        objD[rows[self.fr]]["setup"]["spectrum"] = self.spectrum
+        #    except:
+        #        print "Error!"
+
+        if event.key == 'S':
+            # sum flux between two points
+            # subtract off fit continuum
+            if self.s_is_held:
+                self.window.append([xc,yc])
+                self.window.sort()
+     
+                print self.window
+    
+                w0,y0 = self.window[0]
+                w1,y1 = self.window[1]
+    
+                # integer data positions
+                x0 = np.argmin(np.abs(self.w - w0))
+                x1 = np.argmin(np.abs(self.w - w1))
+    
+                w0 = self.w[x0]
+                w1 = self.w[x1]
+     
+                print w0,w1
+                print x0,x1
+                        
+    
+                # determine coefficients from two points
+                m = (y1-y0)/(w1-w0)
+                b = y0 - m*w0
+                param = [b,m]
+
+                wfit  = self.w[x0:x1+1]
+                dw = wfit[1]-wfit[0]
+
+                print w0,w1
+                print y0,y1
+                print param
+                print dw
+                print
+    
+                flux = 1
+                error = 0
+                #flux = 0
+                #error = 1
+       
+                # sum flux
+                if self.sum_mode == "flux":
+                    xfit  = self.spec[x0:x1+1]
+                    print 
+                    print integrate.trapz(xfit,wfit)  
+                    all   = np.sum(xfit,0)*dw
+                    cont = integrate.quad(poly_x,w0,w1,args=(param))[0]
+                    print xfit
+                    print all
+                    print cont
+                    final_flux = all - cont
+                    print "Flux =",final_flux
+                    print 
+                    
+                    # plot fits
+                    pfit = poly_n(param,0,wfit)  # poly fit
+                    p.plot(wfit,pfit,c="g")
+                    plt.draw()
+                    print wfit
+
+                # rms mode
+                if self.sum_mode == "rms":
+                    xfit  = self.spec[x0:x1+1]**2
+                    print np.sqrt(integrate.trapz(xfit,wfit))
+                    all   = np.sqrt(np.sum(xfit,0)*dw)
+                    print all
+    
+                # sum error
+                if self.sum_mode == "error":
+                    xfit  = self.noise[x0:x1+1]**2
+                    #xfit  = self.spec[x0:x1+1]**2
+                    print np.sqrt(integrate.trapz(xfit,wfit))
+                    all   = np.sqrt(np.sum(xfit,0)*dw)
+                    print all
+    
+                self.s_is_held = False
+                self.window = []
+            else:
+                self.window = [[xc,yc]]
+                #print self.window
+                print "Press shift+s again"
+                self.s_is_held = True
 
         if event.key == 'p':
 
@@ -765,7 +876,7 @@ class SingleObject:
                 f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
             f.close
 
-            #os.system('xpaset -p ds9 regions load all %s &' % reg_f)
+            os.system('xpaset -p ds9 regions load all %s &' % reg_f)
 
 
         self.display(resetbounds=resetbounds)
