@@ -62,7 +62,7 @@ def rebin2D_sum(a, shape):
 # from functons
 def poly_n(p, data, x):
     p = np.array(p)
-    if type(x) == np.FloatType: y = 0
+    if type(x) == FloatType: y = 0
     else: y = np.zeros((x.shape[0],))
     for n in np.arange(p.shape[0]):
         y += p[n]*x**n
@@ -102,6 +102,10 @@ class SingleObject:
         self.fr = fr
         self.fig = fig
 
+        self.fit = False
+        self.fit_flux = []
+        self.fit_wave = []
+        self.fit_window = []
 
         self.slits = N
         
@@ -118,7 +122,7 @@ class SingleObject:
         self.window = []
         self.smooth = 1
         self.comment = ""
-        self.verb = 1
+        self.verb = 0
         self.mask = 1
 
         self.trace = 0
@@ -127,6 +131,8 @@ class SingleObject:
         self.display()
 
     def display(self,resetbounds = 1):
+
+        #print plt.isinteractive()
 
         if resetbounds:
             self.setup_obj = objD[rows[self.fr]]["setup"]
@@ -176,7 +182,7 @@ class SingleObject:
             pf2d = pyfits.open(f2d,ignore_missing_end=1)
             self.big = pf2d[0].data
             self.header = pf2d[0].header
-            print self.big.shape
+            #print self.big.shape
 
             #self.ya    = self.header['CSECT%0dA' % (self.fr+1)]
             #self.yb    = self.header['CSECT%0dB' % (self.fr+1)]
@@ -196,6 +202,11 @@ class SingleObject:
             self.smooth_spec = tri_spec
             self.smooth_img = self.img
 
+            self.fit = False
+            self.fit_flux = []
+            self.fit_wave = []
+            self.fit_window = []
+
             self.bounds()
 
 
@@ -203,8 +214,8 @@ class SingleObject:
 
         #self.w1 = 10010
 
-        #self.fig.clf()
-        plt.clf()
+        self.fig.clf()
+        #plt.clf()
         # [x0, y0, xwidth, ywidth]
         self.ax1 = plt.axes([0.1, 0.7, 0.8, 0.2])
         self.ax2 = plt.axes([0.1, 0.1, 0.8, 0.6], sharex=self.ax1)
@@ -290,15 +301,21 @@ class SingleObject:
         if self.mask:
             self.mask_atmos()
 
+        if self.fit:
+            self.display_fit()
+
 
         # text box prototype (work in progress)
         #self.comment = objD[rows[self.fr]]["setup"]["comment"]
         #self.text_box = TextBox(ax2, 'Comment', initial=self.comment)
         #self.text_box.on_submit(submit)
+        #print plt.isinteractive()
 
-        plt.draw()
         #plt.ion()
-        #self.fig.canvas.draw()
+        #plt.draw()
+
+        self.fig.canvas.draw()
+        #print plt.isinteractive()
 
     def display_trace(self):
 
@@ -309,6 +326,14 @@ class SingleObject:
         self.ax1.plot(self.w, self.objpos + self.tfun[0],"--",color="b")
 
 
+    def display_fit(self):
+        self.ax2.plot(self.fit_wave,self.fit_flux,c="g")
+
+        #print self.fit_window
+        x_ends = np.array(self.fit_window)[:,0]
+        y_ends = np.array(self.fit_window)[:,1]
+
+        self.ax2.scatter(x_ends,y_ends,c="g")
 
     def display_redshift(self):
         dw = (self.w1-self.w0)/200.
@@ -568,28 +593,6 @@ class SingleObject:
             #plt.draw()
             plt.show()
 
-        if event.key == "H":
-            zq_th = 1
-            bins = 20
-
-            zs = np.array([objD[i]["setup"]["z"] for i in objD])
-            zqs = np.array([objD[i]["setup"]["zq"] for i in objD])
-
-            filt = (zs != np.array(None))*(zqs != np.array(None))*((zqs > zq_th))
-
-            new_z = zs[filt]
-
-            fig2 = plt.figure()
-            fig2.canvas.set_window_title(fdir)
-            p2 = fig2.add_subplot(111)
-            p2.hist(new_z,bins)
-            p2.text(0.0,1.025,"N = %i" % (len(new_z)), transform=p2.transAxes)
-            p2.text(0.9,1.025,"zq > %i " % (zq_th), transform=p2.transAxes)
-            p2.set_xlabel("Redshift z")
-
-            #plt.draw()
-            plt.show()
-
 
         if event.key == "M":
            print "Mark new position"
@@ -746,7 +749,9 @@ class SingleObject:
                 self.window.append([xc,yc])
                 self.window.sort()
      
-                print self.window
+                self.fit_window = self.window
+
+                print "(x,y) =",self.fit_window
     
                 w0,y0 = self.window[0]
                 w1,y1 = self.window[1]
@@ -758,8 +763,8 @@ class SingleObject:
                 w0 = self.w[x0]
                 w1 = self.w[x1]
      
-                print w0,w1
-                print x0,x1
+                #print w0,w1
+                #print x0,x1
                         
     
                 # determine coefficients from two points
@@ -770,36 +775,39 @@ class SingleObject:
                 wfit  = self.w[x0:x1+1]
                 dw = wfit[1]-wfit[0]
 
-                print w0,w1
-                print y0,y1
-                print param
-                print dw
-                print
+                #print w0,w1
+                #print y0,y1
+                #print param
+                #print dw
+                #print
     
-                flux = 1
-                error = 0
-                #flux = 0
-                #error = 1
-       
                 # sum flux
                 if self.sum_mode == "flux":
                     xfit  = self.spec[x0:x1+1]
                     print 
-                    print integrate.trapz(xfit,wfit)  
+                    #print integrate.trapz(xfit,wfit)  
                     all   = np.sum(xfit,0)*dw
                     cont = integrate.quad(poly_x,w0,w1,args=(param))[0]
-                    print xfit
-                    print all
-                    print cont
+                    #print xfit
+                    print "Flux (line + continuum) =", all
+                    print "Flux (continuum) =",cont
                     final_flux = all - cont
-                    print "Flux =",final_flux
+                    print "Flux (line) =",final_flux
                     print 
                     
                     # plot fits
                     pfit = poly_n(param,0,wfit)  # poly fit
-                    p.plot(wfit,pfit,c="g")
-                    plt.draw()
-                    print wfit
+                    #self.ax2.plot(wfit,pfit,c="g")
+                    #self.fig.canvas.draw()
+
+                    self.fit = True
+                    self.fit_wave = wfit
+                    self.fit_flux = pfit
+                    #print wfit
+                    #print pfit
+
+
+
 
                 # rms mode
                 if self.sum_mode == "rms":
@@ -876,7 +884,7 @@ class SingleObject:
                 f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
             f.close
 
-            os.system('xpaset -p ds9 regions load all %s &' % reg_f)
+            #os.system('xpaset -p ds9 regions load all %s &' % reg_f)
 
 
         self.display(resetbounds=resetbounds)
@@ -995,7 +1003,7 @@ else:
     trace = args.trace
 
 
-print prefix
+#print prefix
 
 
 fr = args.fr
@@ -1007,9 +1015,9 @@ db = simpledb(smf,fdir)
 #print db
 objD = db.dict["objects"]
 rows = db.row_search()
-print rows
-for d in objD: print d,objD[d]
-print objD[0]['setup'].keys()
+#print rows
+#for d in objD: print d,objD[d]
+#print objD[0]['setup'].keys()
 
 N = len(rows)
 
@@ -1069,6 +1077,7 @@ fig.canvas.set_window_title('g_spec.py')
 #fig = plt.figure(figsize=(10,8))
 SO = SingleObject(fig,fr,N)
 SO.connect()
+#fig.canvas.show()
 plt.show()
 #plt.draw()
 
@@ -1095,8 +1104,8 @@ alignbox = []
 print
 print
 print
-print
-print
+#print
+#print
 
 for i,d in enumerate(objD): 
 
