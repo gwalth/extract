@@ -1,7 +1,5 @@
 # spectral 1D extraction
 
-more words
-
 ## Requirements:
 * CarPy 
 
@@ -36,7 +34,7 @@ Run the spectral viewer
 | ,. | increment/decrement redshift by 0.001 |
 | {} | increment/decrement redshift by 0.0001 |
 | C | enter comment? |
-| S | classify spectrum? |
+| S | sum emission line flux between two points |
 | p | print all object information |
 | w | enter wavelength of line cursor is over? |
 | T | display trace (if loaded) |

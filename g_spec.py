@@ -12,7 +12,7 @@ from astropy.convolution import convolve, Box1DKernel, Box2DKernel
 import astropy.io.fits as pyfits
 import numpy as np
 import matplotlib
-print matplotlib.__version__
+#print matplotlib.__version__
 from scipy import integrate
 
 
@@ -337,18 +337,21 @@ class SingleObject:
 
     def display_redshift(self):
         dw = (self.w1-self.w0)/200.
-        for wl in wlist:
-            wemit,n,line = wl
-            wemit = float(wemit)
-            n = int(n)
-            c = ["r","b"][n-1]
-            wobs = wemit*(1+self.z)
-            if wobs > self.w0 and wobs < self.w1:
-                self.ax2.plot([wobs,wobs],[self.y0,self.y1],"--",color=c)
-                self.ax2.text(wobs-dw,0.85*self.y1,line,fontsize=fontsize,
-                    rotation='vertical',
-                    horizontalalignment='center',
-                    verticalalignment='center',)
+        if len(wlist) > 0:
+            for wl in wlist:
+                wemit,n,line = wl
+                wemit = float(wemit)
+                n = int(n)
+                c = ["r","b"][n-1]
+                wobs = wemit*(1+self.z)
+                if wobs > self.w0 and wobs < self.w1:
+                    self.ax2.plot([wobs,wobs],[self.y0,self.y1],"--",color=c)
+                    self.ax2.text(wobs-dw,0.85*self.y1,line,fontsize=fontsize,
+                        rotation='vertical',
+                        horizontalalignment='center',
+                        verticalalignment='center',)
+        else:
+            print "Line list not loaded!"
 
 #axbox = plt.axes([0.1, 0.05, 0.8, 0.075])
 #text_box = TextBox(axbox, 'Evaluate', initial=initial_text)
@@ -935,12 +938,21 @@ class SingleObject:
 #  g_spec.py -smf 021953.SMF -dir 021953
 #  g_spec.py -smf 021953.SMF -dir 021953 --trace 021953.trace
 
-try:
-    ph1 = os.getenv("PYTHONHOME1")
-    if not ph1: raise "PYTHONHOME1 environmental variable not set!"
-    wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
-except:
-    wavefile = None
+#try:
+#    ph1 = os.getenv("PYTHONHOME1")
+#    if not ph1: raise "PYTHONHOME1 environmental variable not set!"
+#    wavefile = "/".join([ph1,"/datafiles/linelists/galaxylines.dat"])
+#except:
+#    wavefile = None
+
+for p in sys.path:
+    wavefile = p + "/data/galaxylines.dat"
+    #wavefile = p + "/data/galaxylines_short.dat"
+    #wavefile = p + "/../datafiles/linelists/galaxylines.dat"
+    #wavefile = p + "/../datafiles/linelists/galaxylines_short.dat"
+    if os.path.exists(wavefile): break
+    else: wavefile = None
+
 
 # raw
 spec_i = 0
@@ -1028,7 +1040,7 @@ if wavefile and os.path.exists(wavefile):
     wlines = filter(lambda l: l[0] != "#", wlines)
     wlist = map(str.split, wlines)
 else:
-    wlist = None
+    wlist = []
 
 
 # import traces

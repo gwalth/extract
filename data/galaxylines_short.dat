@@ -1,0 +1,64 @@
+# From Duncan Forbes, who got it from Greg Wirth and modified slightly.
+#   Modified by JDL to include more lines from Lang. Table 15, p. 2-129,
+#   and from Pat McCarthy's composite high-z radio galaxy spectrum.
+#   Also added inter/stellar absorption lines seen in NGC 1741 + 4214
+#   (Conti et al. 1996; Leitherer et al. 1996).
+#
+# Common spectral lines
+#
+# 1=emission
+# 2=absorption
+########################################################################
+912     2   Ly-limit
+972     2   Ly-gamma
+1025.7  2   Ly-beta
+1215.67 1   Ly-alpha
+1336.   1   CII
+1336.   2   CII
+1393.76 2   SiIV
+1400.   1   SiIV
+1402.77	2   SiIV
+1548.20 2   CIV   
+1550.   1   CIV
+1550.77 2   CIV
+1663.   1   OIII]
+1718    2   NIV
+1906.75 1   CIII]
+1908.61 1   CIII]
+2185    1   FeII
+2249.9  2   FeII
+2260.8  2   FeII
+2344	2   FeII
+2375	2   FeII
+2383	2   FeII
+2586.65	2   FeII
+2600.17 2   FeII
+2796.4  2   MgII
+2799    1   MgII
+2803.5  2   MgII
+3343.   1   [NeIII]
+3346.   1   [NeV]
+3426.   1   [NeV]
+3726.2  1   [OII]
+3728.9  1   [OII]
+3868.7  1   [NeIII]
+3933.7  2   CaII-K
+3968.5  2   CaII-H
+3970.0  2   Hepsilon
+4000.0  2   Break
+4101.7  1   Hdelta
+4101.7  2   Hdelta
+4340.5  1   Hgamma
+4340.5  2   Hgamma
+4861.3  1   Hbeta
+4861.3  2   Hbeta
+4959.   1   [OIII]
+5007.   1   [OIII]
+6548.1  1   [NII]
+6562.8  1   Halpha
+6583.   1   [NII]
+6717.   1   [SII]
+6731.   1   [SII]
+7135.   1   [ArIII]
+9069.   1   [SIII]
+9545.   1   [SIII]
