@@ -106,6 +106,9 @@ class SingleObject:
         self.fit_flux = []
         self.fit_wave = []
         self.fit_window = []
+        self.fit_text = ""
+        self.fit_output_fmt = "table"
+        #self.fit_output_fmt = "single"
 
         self.slits = N
         
@@ -206,6 +209,7 @@ class SingleObject:
             self.fit_flux = []
             self.fit_wave = []
             self.fit_window = []
+            self.fit_text = ""
 
             self.bounds()
 
@@ -334,6 +338,7 @@ class SingleObject:
         y_ends = np.array(self.fit_window)[:,1]
 
         self.ax2.scatter(x_ends,y_ends,c="g")
+        self.ax2.text(0.02,0.8,self.fit_text, transform=self.ax2.transAxes,color="g")
 
     def display_redshift(self):
         dw = (self.w1-self.w0)/200.
@@ -791,12 +796,22 @@ class SingleObject:
                     #print integrate.trapz(xfit,wfit)  
                     all   = np.sum(xfit,0)*dw
                     cont = integrate.quad(poly_x,w0,w1,args=(param))[0]
-                    #print xfit
-                    print "Flux (line + continuum) =", all
-                    print "Flux (continuum) =",cont
                     final_flux = all - cont
-                    print "Flux (line) =",final_flux
-                    print 
+                    #print xfit
+
+                    x_ends = np.array(self.fit_window)[:,0]
+                    y_ends = np.array(self.fit_window)[:,1]
+ 
+                    if self.fit_output_fmt == "table":
+                        #print "F(all)    F(cont)   F(line)"
+                        #print "%8.2e  %8.2e  %8.2e" % (all,cont,final_flux)
+                        print "%3s  %6s  %7s  %7s  %7s  %7s  %8s  %8s  %8s" % ("Row","ID","Wav1","Wav2","F1","F2","F(all)","F(cont)","F(line)")
+                        print "%3i  %6s  %7.1f  %7.1f  %7.1f  %7.1f  %8.2e  %8.2e  %8.2e" % (rows[self.fr],self.obj,x_ends[0],x_ends[1],y_ends[0],y_ends[1],all,cont,final_flux)
+                    elif self.fit_output_fmt == "single":
+                        print "Flux (all)  =", all
+                        print "Flux (cont) =", cont
+                        print "Flux (line) =", final_flux
+                        print 
                     
                     # plot fits
                     pfit = poly_n(param,0,wfit)  # poly fit
@@ -806,6 +821,7 @@ class SingleObject:
                     self.fit = True
                     self.fit_wave = wfit
                     self.fit_flux = pfit
+                    self.fit_text = "F(all) = %.2e\nF(cont) = %.2e\nF(line) = %.2e" % (all,cont,final_flux)
                     #print wfit
                     #print pfit
 
