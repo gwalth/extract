@@ -465,14 +465,14 @@ def GetProfile(D,edge,plot=0,verb=0,mark=0):
 
     if plot:
         fig = plt.figure()
-        p = fig.add_subplot(111)
-        #p.plot(spec2d_noedge)
-        #p.plot(spec1d_noedge)
-        #p.plot(spec1d_clip)
-        #p.plot(profile1,drawstyle="steps")
-        #p.plot(profile2,drawstyle="steps")
-        #p.plot(x,profile3,drawstyle='steps-mid')
-        p.plot(x,profile4,drawstyle='steps-mid',label="Profile of spectrum (sum)")
+        p1 = fig.add_subplot(111)
+        #p1.plot(spec2d_noedge)
+        #p1.plot(spec1d_noedge)
+        #p1.plot(spec1d_clip)
+        #p1.plot(profile1,drawstyle="steps")
+        #p1.plot(profile2,drawstyle="steps")
+        #p1.plot(x,profile3,drawstyle='steps-mid')
+        p1.plot(x,profile4,drawstyle='steps-mid',label="Profile of spectrum (sum)",c="k")
 
         dx = 0.1
         gx = np.arange(0,xl,dx)
@@ -527,20 +527,20 @@ def GetProfile(D,edge,plot=0,verb=0,mark=0):
         
         #print integrate.quad(poly_x,w0,w1,args=(param))[0]
 
-        p.plot(gx,gf,label="Gaussian fit")
+        p1.plot(gx,gf,label="Gaussian fit")
 
-        ymin,ymax = p.get_ylim()
+        ymin,ymax = p1.get_ylim()
 
-        p.plot([xcen,xcen],[ymin,ymax],"--",c="b",label="Extraction aperture")
-        p.plot([xcen-aper/2.0,xcen-aper/2.0],[ymin,ymax],"--",c="b")
-        p.plot([xcen+aper/2.0,xcen+aper/2.0],[ymin,ymax],"--",c="b")
-        p.plot([xcen-large_aper/2.0,xcen-large_aper/2.0],[ymin,ymax],"--",c="c",label="Large extraction aperture")
-        p.plot([xcen+large_aper/2.0,xcen+large_aper/2.0],[ymin,ymax],"--",c="c")
+        p1.plot([xcen,xcen],[ymin,ymax],"--",c="b",label="Extraction aperture")
+        p1.plot([xcen-aper/2.0,xcen-aper/2.0],[ymin,ymax],"--",c="b")
+        p1.plot([xcen+aper/2.0,xcen+aper/2.0],[ymin,ymax],"--",c="b")
+        p1.plot([xcen-large_aper/2.0,xcen-large_aper/2.0],[ymin,ymax],"--",c="c",label="Large extraction aperture")
+        p1.plot([xcen+large_aper/2.0,xcen+large_aper/2.0],[ymin,ymax],"--",c="c")
 
-        p.set_ylim(ymin,ymax)
-        p.set_xlabel("X-axis (pixels)")
-        p.set_ylabel("Flux (counts)")
-        leg = p.legend(loc=2,numpoints=1)
+        p1.set_ylim(ymin,ymax)
+        p1.set_xlabel("X-axis (pixels)")
+        p1.set_ylabel("Flux (counts)")
+        leg = p1.legend(loc=2,numpoints=1)
         plt.show()
 
     if mark > 0:
@@ -666,7 +666,12 @@ def getdata_longslit(ext=0,plot=0):
     pfs.close()
 
     pfn = pyfits.open(nf)
-    noise2d = pfn[ext].data
+    #noise2d = pfn[ext].data
+    #print noise2d
+    #noise2d = np.sqrt(pfn[ext].data)  # not exactly sure what the rsum frame is, i think thise should be close to the noise
+    noise2d = getsqrt(pfn[ext].data)
+    #print noise2d
+    #sys.exit()
     pfn.close()
 
     pfs = pyfits.open(sf)
@@ -713,18 +718,18 @@ def getdata_longslit(ext=0,plot=0):
 
     if plot:
         fig = plt.figure()
-        p = fig.add_subplot(111)
-        p.plot(median_profile1,label="Profile of spectrum (median)")
-        #p.plot(median_profile2)
-        p.set_xlabel("X-axis (pixels)")
-        p.set_ylabel("Flux (counts)")
-        leg = p.legend(loc=2,numpoints=1)
+        p1 = fig.add_subplot(111)
+        p1.plot(median_profile1,label="Profile of spectrum (median)",c="k")
+        #p1.plot(median_profile2)
+        p1.set_xlabel("X-axis (pixels)")
+        p1.set_ylabel("Flux (counts)")
+        leg = p1.legend(loc=2,numpoints=1)
         plt.show()
 
     return D
 
 # rename to extraction
-def Etrace(o,d,p,t,a,r=2,shift=True,f=False,edge=3):
+def Etrace(o,d,p,t,a,r=2,shift=True,f=False,edge=3,plot=0):
     if not f: sys.stdout.write(" %r" % (o)); sys.stdout.flush()
     if f: s = d
     else: (s,n) = d
@@ -787,6 +792,17 @@ def Etrace(o,d,p,t,a,r=2,shift=True,f=False,edge=3):
     mid = lo*hi
     use = (mid+hip+lop)
     intspec = lambda d: add.reduce(d*use)
+
+    if plot:
+        fig = plt.figure()
+        p1 = fig.add_subplot(111)
+        p1.plot(intspec(s),drawstyle='steps-mid',label="Extracted spectrum",c="k")
+        if not f: 
+            p1.plot(getsqrt(intspec(power(n,2))),drawstyle='steps-mid',label="Extracted spectrum",c="r")
+        #p1.set_xlabel("X-axis (pixels)")
+        p1.set_ylabel("Flux (counts)")
+        leg = p1.legend(loc=2,numpoints=1)
+        plt.show()
 
     if f: return (intspec(s),p)
     else: return (intspec(s),getsqrt(intspec(power(n,2))),p)
@@ -919,7 +935,7 @@ tf.close()
 
  
 print "Starting extractions"
-spectra = [Etrace(D["id"],(D["data"]["spec2d"],D["data"]["noise2d"]),D["pos"],tfun[[0,0][trace_ind]],D["ap"],r=trace_th,shift=not no_find and D["shift"],f=False,edge=edge)]
+spectra = [Etrace(D["id"],(D["data"]["spec2d"],D["data"]["noise2d"]),D["pos"],tfun[[0,0][trace_ind]],D["ap"],r=trace_th,shift=not no_find and D["shift"],f=False,edge=edge,plot=1)]
 print
 
 Sp = array([s[2] for s in spectra])
