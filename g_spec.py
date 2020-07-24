@@ -93,7 +93,7 @@ def tri_smooth(y):
     return S
 
 def MAD(x):
-    return np.median(np.abs(x-np.median(x)))
+    return np.nanmedian(np.abs(x-np.nanmedian(x)))
 
 
 class SingleObject:
@@ -131,6 +131,9 @@ class SingleObject:
         self.trace = 0
         self.tfun = None
 
+        self.spec_i = 0
+        self.noise_i = 1
+
         self.display()
 
     def display(self,resetbounds = 1):
@@ -147,10 +150,19 @@ class SingleObject:
             self.z = self.setup_obj["z"] 
             self.zq = self.setup_obj["zq"] 
 
-            f1d = self.setup_obj["spec1d"]
+            if self.setup_obj["spec1d_flux"]:
+                f1d = self.setup_obj["spec1d_flux"]
+                self.spec_i = 6
+                self.noise_i = 7
+            else:
+                f1d = self.setup_obj["spec1d"]
+                self.spec_i = 0
+                self.noise_i = 1
+
             f2d = self.setup_obj["spec2d"]
-            
+
             pf1d = pyfits.open(f1d,ignore_missing_end=1)
+            
             self.spec1d = pf1d[0].data
             header = pf1d[0].header
             
@@ -169,9 +181,9 @@ class SingleObject:
             #print self.w
             
             #print self.spec1d.shape
-            #print self.spec1d[spec_i,:].shape
-            #print self.spec1d[spec_i,self.fr,:].shape
-            #print self.spec1d[spec_i,self.fr,:]
+            #print self.spec1d[self.spec_i,:].shape
+            #print self.spec1d[self.spec_i,self.fr,:].shape
+            #print self.spec1d[self.spec_i,self.fr,:]
             #print
             #print
 
@@ -197,8 +209,8 @@ class SingleObject:
             #self.img   = self.big[self.ya:self.yb,:]
             self.img   = self.big
             #print self.spec1d.shape
-            self.spec  = self.spec1d[spec_i,:]
-            self.noise = self.spec1d[noise_i,:]
+            self.spec  = self.spec1d[self.spec_i,:]
+            self.noise = self.spec1d[self.noise_i,:]
 
             rect_spec = rect_smooth(self.spec)
             tri_spec = tri_smooth(self.spec)
@@ -268,8 +280,8 @@ class SingleObject:
         if self.smooth:
             self.ax2.plot(self.w,self.smooth_spec,c="k",drawstyle="steps-mid")
 
-        #self.ax2.plot(self.x,self.spec1d[spec_i,self.fr,:],color="k",drawstyle="steps")
-        #self.ax2.plot(self.x,self.spec1d[noise_i,self.fr,:],color="r",drawstyle="steps")
+        #self.ax2.plot(self.x,self.spec1d[self.spec_i,self.fr,:],color="k",drawstyle="steps")
+        #self.ax2.plot(self.x,self.spec1d[self.noise_i,self.fr,:],color="r",drawstyle="steps")
 
         self.ax1.set_xlim(self.w0,self.w1)
         self.ax2.set_xlim(self.w0,self.w1)
@@ -278,7 +290,10 @@ class SingleObject:
         self.ax2.set_ylim(self.y0,self.y1)
 
         self.ax2.set_xlabel("Observed Wavelength ($\AA$)",fontsize=12)
-        self.ax2.set_ylabel("Flux",fontsize=12)
+        if self.setup_obj["spec1d_flux"]:
+            self.ax2.set_ylabel("Flux (erg/s/cm$^2$/$\AA$)",fontsize=12)
+        else:
+            self.ax2.set_ylabel("Flux (counts)",fontsize=12)
 
 
         # display info
@@ -398,9 +413,11 @@ class SingleObject:
         sigma = 5
 
         vstd = 1.4826*MAD(self.big.flat)
-        vmed = np.median(self.big.flat)
-        ystd = 1.4826*MAD(self.spec1d[spec_i,:])
-        ymed = np.median(self.spec1d[spec_i,:])
+        vmed = np.nanmedian(self.big.flat)
+        ystd = 1.4826*MAD(self.spec1d[self.spec_i,:])
+        ymed = np.nanmedian(self.spec1d[self.spec_i,:])
+
+        #print ystd,ymed
 
         self.w0 = self.w[0]
         self.w1 = self.w[-1]
@@ -877,9 +894,8 @@ class SingleObject:
 
         if event.key == 'X':
 
-
-
             reg_f = "redshifts.reg"
+            print "writing %s" % (reg_f)
             f = open(reg_f,"w")
             f.write("fk5\n")
             for i in objD:
@@ -887,6 +903,7 @@ class SingleObject:
                 dec = objD[i]["setup"]["dec"]
                 z = objD[i]["setup"]["z"]
                 zq = objD[i]["setup"]["zq"]
+                obj = objD[i]["setup"]["object"]
                 comment = objD[i]["setup"]["comment"]
 
                 if z: z_str = "%.3f" % z
@@ -900,7 +917,8 @@ class SingleObject:
 
 
                 f.write('circle(%s,%s,2") # text={%s} color=%s\n' % (ra,dec,z_str,color))
-                f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
+                #f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,comment_str))
+                f.write('circle(%s,%s,3") # text={%s}\n' % (ra,dec,obj))
             f.close
 
             #os.system('xpaset -p ds9 regions load all %s &' % reg_f)
@@ -971,11 +989,16 @@ for p in sys.path:
 
 
 # raw
-spec_i = 0
-noise_i = 1
-# fluxed
+#spec_i = 0
+#noise_i = 1
+# "fluxed" divided by raw flat
 #spec_i = 4
 #noise_i = 5
+# flux calibrated
+#spec_i = 6
+#noise_i = 7
+
+
 # comparison
 #spec_i = 0
 #noise_i = 4 # fluxed spectra
@@ -1040,12 +1063,12 @@ fr = args.fr
 
 
 db = simpledb(smf,fdir)
-#print db
+print db
 objD = db.dict["objects"]
 rows = db.row_search()
-#print rows
-#for d in objD: print d,objD[d]
-#print objD[0]['setup'].keys()
+print rows
+for d in objD: print d,objD[d]
+print objD[0]['setup'].keys()
 
 N = len(rows)
 
