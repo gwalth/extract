@@ -30,6 +30,213 @@ from simpledb import simpledb
 #    return np.split(data, np.where(np.diff(data) != stepsize)[0]+1)
 
 #consecutive(a)
+class GUI_mark:
+    def __init__(self,fig,spec2d,profile):
+        self.fig = fig
+        self.spec2d = spec2d
+        self.profile = profile
+
+        self.crpix1,self.crval1,self.cd1_1 = wcs
+
+        xsize = self.profile.shape[0]
+        zsize,ysize = self.spec2d.shape
+        self.zsize = zsize
+        self.x = np.arange(xsize)+1
+
+        print zsize,ysize
+
+        self.shift_is_held = False
+        self.control_is_held = False
+
+        self.display()
+
+    def display(self,resetbounds = 1):
+
+        if resetbounds:
+            self.bounds()
+
+
+        #self.fig.clf()
+        plt.clf()
+        # [x0, y0, xwidth, ywidth]
+        self.ax1 = plt.axes([0.1, 0.1, 0.2, 0.8])
+        self.ax2 = plt.axes([0.3, 0.1, 0.6, 0.8])
+
+        #self.x0 = 0.
+        #self.x1 = 
+
+
+        print self.x0,self.x1
+        print self.w0,self.w1
+
+        self.ax1.imshow(self.spec2d[:,self.x0:self.x1],
+                        interpolation="nearest", cmap=cm.gray_r,
+                        vmin=self.v0, vmax=self.v1, aspect="auto",
+                        extent=(self.w0,self.w1,self.zsize,0))
+        #self.ax1.imshow(self.spec2d[:,self.x0:self.x1],
+        #self.ax1.imshow(self.spec2d,
+        #                interpolation="nearest", cmap=cm.gray_r)
+       
+        # example code: 
+        #   ax1.imshow(spec2d[:,x0:x1], interpolation="nearest", cmap=cm.gray_r, vmin=v0, vmax=v1, aspect="auto", extent=(w0,w1,zsize,0))
+
+        plt.setp(self.ax1.get_xticklabels(), visible=False)
+
+        self.ax1.set_xlim(self.w0,self.w1)
+        self.ax2.set_xlim(self.w0,self.w1)
+
+
+
+        self.ax2.plot(self.wav,self.spec1d,color="k",alpha=0.2,drawstyle="steps")
+
+
+        self.ax2.set_ylim(self.y0,self.y1)
+
+        self.ax2.set_xlabel("Observed Wavelength ($\AA$)",fontsize=12)
+        self.ax2.set_ylabel("Flux",fontsize=12)
+
+
+        # display info
+        #self.ax1.text(0.0,1.1,"id = %s" % self.obj,
+        #              transform=self.ax1.transAxes)
+    def bounds(self):
+        sigma = 5
+
+        # filter out zeros
+        fwav = np.compress(np.greater(self.wav,0),self.wav)
+
+        self.x0 = np.argmin(np.abs(self.wav - self.w0))
+        self.x1 = np.argmin(np.abs(self.wav - self.w1))
+
+        vstd = 1.4826*MAD(self.spec2d.flat)
+        vmed = np.median(self.spec2d.flat)
+
+        ystd = 1.4826*MAD(self.profile[self.x0:self.x1])
+        ymed = np.median(self.profile[self.x0:self.x1])
+        #self.x0 = self.x[0]
+        #self.x1 = self.x[-1]
+ 
+        print self.x0
+        print self.x1
+
+        self.v0 = vmed-sigma*vstd
+        self.v1 = vmed+sigma*vstd
+
+        self.y0 = ymed-sigma*ystd
+        self.y1 = ymed+sigma*ystd
+
+        print self.v0
+        print self.v1
+        print self.y0
+        print self.y1
+
+    def on_key_press(self,event):
+
+        xc, yc = event.xdata, event.ydata
+
+        #plt.gcf()
+        #print plt.gcf()
+        #self.fig.gcf()
+
+        #print self.obj
+        #print self.fr
+        #print self.ax1.get_xlim() 
+        #print self.ax2.get_xlim() 
+        self.w0,self.w1 = self.ax2.get_xlim() 
+        self.y0,self.y1 = self.ax2.get_ylim() 
+
+        #print event.key
+        resetbounds = 0
+        zf = 2.0
+        
+        #print self.v0,self.v1,self.w0,self.w1,self.y0,self.y1
+
+        if event.key == 'shift':
+            self.shift_is_held = True
+
+        if event.key == 'control':
+            self.control_is_held = True
+
+        if event.key == "n":
+           if self.shift_is_held:
+               if self.fr > 0:
+                   self.fr -= 1
+                   resetbounds = 1
+           else:
+               if self.fr < self.slits-1:
+                   self.fr += 1
+                   resetbounds = 1
+
+        vran = self.v1 - self.v0
+        yran = self.y1 - self.y0
+        xran = self.w1 - self.w0
+
+        if event.key == "s": # sharper
+           self.v0 = self.v0 + vran/4.
+           self.v1 = self.v1 - vran/4.
+        if event.key == "d": # duller
+           self.v0 = self.v0 - vran/4.
+           self.v1 = self.v1 + vran/4.
+        if event.key == "b": # brighter
+           self.v0 = self.v0 + vran/4.
+           self.v1 = self.v1 + vran/4.
+        if event.key == "f": # fainter
+           self.v0 = self.v0 - vran/4.
+           self.v1 = self.v1 - vran/4.
+        #if event.key == "i": # invert 
+        #   self.v0,self.v1 = self.v1,self.v0
+
+        if event.key == "x" or event.key == "z":
+            if not self.control_is_held:
+              if self.shift_is_held:
+                  xran = xran/zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
+                  if self.w0 < self.w[0]:  self.w0 = self.w[0]
+                  if self.w1 > self.w[-1]: self.w1 = self.w[-1]
+              else:
+                  xran = xran*zf; self.w0 = xc - xran/2.; self.w1 = xc + xran/2.
+                  if self.w0 < self.w[0]:  self.w0 = self.w[0]
+                  if self.w1 > self.w[-1]: self.w1 = self.w[-1]
+
+        if event.key == "y" or event.key == "z":
+            if not self.control_is_held:
+              if self.shift_is_held:
+                  yran = yran/zf
+                  self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
+              else:
+                  yran = yran*zf
+                  self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
+
+        if event.key == "h":
+            self.x0 = self.x0 - xran/10.
+            if self.x0 < self.x[0]: self.x0 = self.x[0]
+            self.x1 = self.x0 + xran
+        if event.key == "l":
+            self.x1 = self.x1 + xran/10.
+            if self.w1 > self.w[-1]: self.x1 = self.x[-1]
+            self.x0 = self.x1 - xran
+        if event.key == "j":
+            self.y0 = self.y0 - yran/10.
+            self.y1 = self.y1 - yran/10.
+        if event.key == "k":
+            self.y0 = self.y0 + yran/10.
+            self.y1 = self.y1 + yran/10.
+
+        if event.key == "r":
+            resetbounds = 1
+
+        if event.key == "z":
+            if self.control_is_held:
+                if self.redshift: self.redshift = 0
+                else: self.redshift = 1
+
+
+        self.display(resetbounds=resetbounds)
+
+    def on_key_release(self, event):
+        if event.key == 'shift':
+            self.shift_is_held = False
+        if event.key == 'control':
+            self.control_is_held = False
 
 def between(x,x0,x1):
     return np.greater(x,x0)*np.less(x,x1)
@@ -147,7 +354,7 @@ def GetTrace(D,params,edge,trace_order=2,sw=10):
 #    p = reshape(dot(t,b),x.shape)
 #    r = VTKImageTransform(spec2d,0.0*p,p,reverse=0,numret=1)
 
-def GetProfile(D,edge,plot=0,verb=0):
+def GetProfile(D,edge,plot=0,verb=0,mark=0):
     #(spec2d,noise2d) = D["data"]
     spec2d = D["data"]["spec2d"]
     noise2d = D["data"]["noise2d"]
@@ -190,6 +397,96 @@ def GetProfile(D,edge,plot=0,verb=0):
         gf = gauss(params,0,x,fitting=0)
         p.plot(gf)
         plt.show()
+
+    if mark > 0:
+        weights = divz(1,noise2d).flatten()**2
+        F = spec2d.flatten()
+        cf = divz(sum(F*weights),sum(weights))
+        cf = 0.0
+        rf = sqrt(divz(sum(weights*(F-cf)**2),sum(weights)))
+        a1,a2 = cf-3*rf, +3*rf
+        So = sort(F)
+        No = len(So)
+        a1,a2 = So[int(0.05*No+1)], So[int(0.95*No+1)]
+        c1,c2 = 0,spec2d.shape[1]-1
+        xfm = array([-0.5,1.0,0.0,-0.5,0.0,1.0])
+        kcur = None
+        xcur = spec2d.shape[1]/2
+        ycur = params[0]
+        #if testmark:
+        #    for m in mf:
+        #        if D["id"] == m[0].strip():
+        #            params[0] = float(m[1])
+        #            break
+        #else:
+        if 1:
+            while kcur not in ["a","M","q"]:
+                PG.cpgsvp(0.05,0.20,0.15,0.90)
+                PG.newbox([0,spec2d.shape[0]-1],[min(p)-(max(p)-min(p))/10,max(p)+(max(p)-min(p))/3],ch=2.3,manvp=1)
+                PG.xlabel("Y",ch=2.3)
+                PG.ylabel("Profile",ch=2.3)
+                PG.drawln(x,p,ls=1,hist=1)
+                xa = arange(min(x),max(x)+1,0.01,Float)
+                PG.drawln(x,p,ls=1,ci=2,hist=1)
+                PG.drawln(xa,gauss(params,p,xa,0,0),ls=1,ci=4,hist=0)
+                PG.drawln([params[0],params[0]],[min(p)-2*(max(p)-min(p)),max(p)+2*(max(p)-min(p))],ls=1,ci=7)
+                PG.subtitle(D["id"],ch=2.3)
+
+                PG.cpgsvp(0.25,0.95,0.15,0.90)
+                PG.newbox([c1,c2],[0,spec2d.shape[0]-1],ch=2.3,manvp=1,era=0)
+                PG.xlabel("X",ch=2.3)
+                PG.ylabel("Y",ch=2.3)
+                PG.subtitle(D["id"],ch=2.3)
+                PG.cpggray(spec2d,spec2d.shape[1],spec2d.shape[0],\
+                        1,spec2d.shape[1],1,spec2d.shape[0],a1,a2,xfm)
+                PG.drawln([0,spec2d.shape[1]],[0.5+params[0],0.5+params[0]],ls=1,ci=7)
+                PG.drawln([0,spec2d.shape[1]],[0.5+params[0]-10**params[2],0.5+params[0]-10**params[2]],ls=2,ci=7)
+                PG.drawln([0,spec2d.shape[1]],[0.5+params[0]+10**params[2],0.5+params[0]+10**params[2]],ls=2,ci=7)
+                PG.drawln([0,spec2d.shape[1]],[0.5+h,0.5+h],ls=1,ci=2)
+                PG.drawln([0,spec2d.shape[1]],[0.5+h+mark/2.,0.5+h+mark/2.],ls=2,ci=2)
+                PG.drawln([0,spec2d.shape[1]],[0.5+h-mark/2.,0.5+h-mark/2.],ls=2,ci=2)
+
+                kcur,(xcur,ycur),(xdum,ydum) = PG.getcurs(xcur,ycur,xfm)
+                if kcur == "I": raise "UserInterrupt"
+                if kcur in ["a","q"]: break
+                if kcur.upper() == "M":
+                    params = array([ydum,99,3,0.0])
+                    status = 1
+                    if kcur == "M": break
+              
+                aran = a2-a1
+                xran = c2-c1
+                if kcur == "j": params[0] = max([0.0, params[0] - 0.5])
+                if kcur == "k": params[0] = min([params[0] + 0.5, spec2d.shape[0]-1])
+                if kcur == "J": params[0] = max([0.0, params[0] - 5.0])
+                if kcur == "K": params[0] = min([params[0] + 5.0, spec2d.shape[0]-1])
+                if kcur == "h":
+                    c1 = c1 - xran/10.
+                    if c1 < 0: c1 = 0
+                    c2 = c1 + xran
+                if kcur == "l":
+                    c2 = c2 + xran/10.
+                    if c2 > spec2d.shape[1]-1: c2 = spec2d.shape[1]-1
+                    c1 = c2 - xran
+              
+                zf = 2.0
+                if kcur == "s": a1=a1+aran/4.; a2=a2-aran/4.
+                if kcur == "d": a1=a1-aran/4.; a2=a2+aran/4.
+                if kcur == "f": a1=a1-aran/4.; a2=a2-aran/4.
+                if kcur == "b": a1=a1+aran/4.; a2=a2+aran/4.
+                if kcur == "r": a1,a2 = So[int(0.05*No+1)], So[int(0.95*No+1)]; c1,c2 = 0,spec2d.shape[1]-1
+                if kcur == "x" or kcur == "X":
+                    if kcur == "x": xran = xran*zf; c1 = xcur - xran/2.; c2 = xcur + xran/2.
+                    if kcur == "X": xran = xran/zf; c1 = xcur - xran/2.; c2 = xcur + xran/2.
+                    if c1 < 0: c1 = 0
+                    if c2 > spec2d.shape[1]-1: c2 = spec2d.shape[1]-1
+                PG.cpgeras()
+            
+            ### cheat we subtract a -1 to offset the -1 we would get in stage-extract-1dspec   
+            params[0] -= 1.0
+            mf.write("%-8s = %f\n" % (D["id"],params[0]))
+
+
 
     if not (0 < params[0] < x[-1]): status = 0
     params[1] = np.power(10,params[1])          # amplitude
@@ -250,6 +547,8 @@ def getdata(r,refobjs,ext=0,plot=0):
 
     pff = pyfits.open(ff)
     flat2d = pff[ext].data
+    fltexp = pff[ext].header['exptime']
+    #print fltexp
     pfn.close()
 
     # mini dictionary to store basic information
@@ -273,6 +572,7 @@ def getdata(r,refobjs,ext=0,plot=0):
         D["data"]["sky2d"] = sky2d[filt].reshape(N).astype("Float32")
         D["data"]["flat2d"] = flat2d[filt].reshape(N).astype("Float32")
 
+        D["fltexp"] = fltexp
 
         print "%15s %10.2f" % (id, flux)
 
@@ -377,7 +677,7 @@ parser.add_argument('--trace-all', action="store_true",
 #                    default=2,help='trace each individual object (all) for atmospheric dispersion')
 parser.add_argument('-o', metavar='order', type=int, nargs=2,
                     help="orders of fit to objects positions on the mask")
-parser.add_argument('-a', metavar='aperture', type=int, nargs=1, default=10,
+parser.add_argument('-a', metavar='aperture', type=int, nargs='?', default=10,
                     help="default aperture to extract 1D spectra [integer]")
 
 args = parser.parse_args()
@@ -389,6 +689,7 @@ edge = args.edge
 orders = args.o
 trace_all = args.trace_all
 trace_order = args.trace_order
+print aper
 
 sw = 10
 
@@ -399,7 +700,7 @@ no_find = 0 # skip finding object positions
 mark = 0
 
 #sky = 1
-#flat = 1
+flat = 1
 
 db = simpledb(smf,fdir)
 objD = db.dict["objects"]
@@ -626,7 +927,16 @@ for d in D:
       else: d["trace"] = None
 
 traces = np.asarray([d["trace"] for d in D if d["trace"] != None or trace_ind])
-print traces
+print
+print
+print "traces =",traces
+
+if len(traces) == 0:
+   print "There are zero reference objects to calculate the trace, try switching to --trace-all."
+   print
+   print
+   print
+   sys.exit()
 
 # Find the trace for each object
 if trace_ind:
@@ -700,12 +1010,14 @@ for tr in trace:
 
 tfun = np.asarray(tfun)
 #db.dict["trace"] = tfun
+print tfun
 db.write()
 
 #print tfun.shape
-t = open(fdir + ".trace","wb")
-cPickle.dump(tfun,t) 
-t.close()
+print id
+tf = open(fdir + ".trace","wb")
+cPickle.dump(tfun,tf) 
+tf.close()
 
 
 
@@ -754,19 +1066,23 @@ skys = [Etrace(d["id"],d["data"]["sky2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"
 skys_arr = np.array([s[0] for s in skys])
 
 ## Flattened-Flatfield Extractions
-print "Starting flat extractions"
-flats = [Etrace(d["id"],d["data"]["flat2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D) if d["data"] != None]
-flats_arr = np.array([f[0] for f in flats])
+if flat:
+    print "Starting flat extractions"
+    flats = [Etrace(d["id"],d["data"]["flat2d"],d["pos"],tfun[[0,k][trace_ind]],d["ap"],r=0.0,shift=False,f=True,edge=edge) for k,d in enumerate(D) if d["data"] != None]
+    flats_arr = np.array([f[0] for f in flats])
 
-print flats_arr.shape
-print spectra_arr.shape
+    print flats_arr.shape
+    print spectra_arr.shape
 
-fluxed_spectra_arr = np.array([[divz(s[0]/(f[0]/np.median(f[0]))) for s,f in zip(spectra,flats)],
+    fluxed_spectra_arr = np.array([[divz(s[0]/(f[0]/np.median(f[0]))) for s,f in zip(spectra,flats)],
                                [divz(s[1]/(f[0]/np.median(f[0]))) for s,f in zip(spectra,flats)]])
 
-print fluxed_spectra_arr.shape
+    print fluxed_spectra_arr.shape
 
-all_extractions = concatenate([spectra_arr,[skys_arr],[flats_arr],fluxed_spectra_arr],0)
+    all_extractions = concatenate([spectra_arr,[skys_arr],[flats_arr],fluxed_spectra_arr],0)
+
+else:
+    all_extractions = concatenate([spectra_arr,[skys_arr]],0)
 print all_extractions.shape
 
 #print D
@@ -793,9 +1109,12 @@ for d in D:
         new_head["ARRAY1"] = ("SPECTRUM","units of counts")
         new_head["ARRAY2"] = ("NOISE","units of counts")
         new_head["ARRAY3"] = ("SKY","units of counts")
-        new_head["ARRAY4"] = ("RAW FLATS","units of counts")
-        new_head["ARRAY5"] = ("FLUXED SPECTRUM","units of counts")
-        new_head["ARRAY6"] = ("FLUXED NOISE","units of counts")
+        if flat:
+            new_head["ARRAY4"] = ("RAW FLATS","units of counts")
+            new_head["ARRAY5"] = ("FLUXED SPECTRUM","units of counts")
+            new_head["ARRAY6"] = ("FLUXED NOISE","units of counts")
+
+            new_head["FLTEXP"] = (d["fltexp"],"flat exposure time")
         
         hdu = pyfits.PrimaryHDU(spectrum,header=new_head)
         #hdu = pyfits.PrimaryHDU(spectrum)
