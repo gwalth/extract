@@ -725,7 +725,7 @@ trace_ind = 0
 trace_th = 2.0
 flux_cut = 0.0
 no_find = 0 # skip finding object positions
-mark = 0
+mark = 1
 
 #sky = 1
 flat = 1
@@ -753,7 +753,7 @@ print fluxes
 #if mark:
 #else:
 #[GetProfile(d,edge) for d in D if d["ref"] and d["flux"] > flux_cut]
-[GetProfile(d,edge) for d in D if d["flux"] > flux_cut]
+[GetProfile(d,edge,mark=mark) for d in D if d["flux"] > flux_cut]
 
 for d in D: d["ref"] = (d["flux"] > flux_cut)
 
