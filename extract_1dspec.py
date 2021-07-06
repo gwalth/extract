@@ -400,12 +400,12 @@ def GetProfile(D,edge,plot=0,verb=0,mark=0):
 
     if mark > 0:
         weights = divz(1,noise2d).flatten()**2
-        F = spec2d.flatten()
-        cf = divz(sum(F*weights),sum(weights))
+        spec2d_flat = spec2d.flatten()
+        cf = divz(sum(spec2d_flat*weights),sum(weights))
         cf = 0.0
-        rf = sqrt(divz(sum(weights*(F-cf)**2),sum(weights)))
+        rf = sqrt(divz(sum(weights*(spec2d_flat-cf)**2),sum(weights)))
         a1,a2 = cf-3*rf, +3*rf
-        So = sort(F)
+        So = sort(spec2d_flat)
         No = len(So)
         a1,a2 = So[int(0.05*No+1)], So[int(0.95*No+1)]
         c1,c2 = 0,spec2d.shape[1]-1
@@ -419,10 +419,38 @@ def GetProfile(D,edge,plot=0,verb=0,mark=0):
         #            params[0] = float(m[1])
         #            break
         #else:
-        if 1:
+
+
+        fig = plt.figure()
+        GUI_mark(fig,spec2d,profile3)
+        plt.show()
+
+        sys.exit()
+
+        if 0:
             while kcur not in ["a","M","q"]:
+                fig = plt.figure()
+                p1 = fig.add_subplot(111)
+                #p1.plot(spec2d_noedge)
+                #p1.plot(spec1d_noedge)
+                #p1.plot(spec1d_clip)
+                #p1.plot(profile1,drawstyle="steps")
+                #p1.plot(profile2,drawstyle="steps")
+                p1.plot(profile3,drawstyle="steps")
+                
+                gf = gauss(params,0,x,fitting=0)
+
+                p1.plot(gf)
+                p1.set_xlabel("Y")
+                p1.set_ylabel("Profile")
+
+                #plt.show()
+
+
+
+
                 PG.cpgsvp(0.05,0.20,0.15,0.90)
-                PG.newbox([0,spec2d.shape[0]-1],[min(p)-(max(p)-min(p))/10,max(p)+(max(p)-min(p))/3],ch=2.3,manvp=1)
+                PG.newbox([0,spec2d.shape[0]-1],[np.min(profile3)-(np.max(profile3)-np.min(profile3))/10,np.max(profile3)+(np.max(profile3)-np.min(profile3))/3],ch=2.3,manvp=1)
                 PG.xlabel("Y",ch=2.3)
                 PG.ylabel("Profile",ch=2.3)
                 PG.drawln(x,p,ls=1,hist=1)
