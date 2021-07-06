@@ -36,7 +36,7 @@ class GUI_mark:
         self.spec2d = spec2d
         self.profile = profile
 
-        self.crpix1,self.crval1,self.cd1_1 = wcs
+        #self.crpix1,self.crval1,self.cd1_1 = wcs
 
         xsize = self.profile.shape[0]
         zsize,ysize = self.spec2d.shape
