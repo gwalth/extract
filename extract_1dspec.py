@@ -87,13 +87,13 @@ class GUI_mark:
 
 
 
-        self.ax2.plot(self.wav,self.spec1d,color="k",alpha=0.2,drawstyle="steps")
+        #self.ax2.plot(self.wav,self.spec1d,color="k",alpha=0.2,drawstyle="steps")
 
 
-        self.ax2.set_ylim(self.y0,self.y1)
+        #self.ax2.set_ylim(self.y0,self.y1)
 
-        self.ax2.set_xlabel("Observed Wavelength ($\AA$)",fontsize=12)
-        self.ax2.set_ylabel("Flux",fontsize=12)
+        #self.ax2.set_xlabel("Observed Wavelength ($\AA$)",fontsize=12)
+        #self.ax2.set_ylabel("Flux",fontsize=12)
 
 
         # display info
