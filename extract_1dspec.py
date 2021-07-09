@@ -22,6 +22,8 @@ from scipy.optimize import leastsq
 import numpy.linalg as linalg
 
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
 
 from simpledb import simpledb
 
@@ -30,20 +32,36 @@ from simpledb import simpledb
 #    return np.split(data, np.where(np.diff(data) != stepsize)[0]+1)
 
 #consecutive(a)
+
+#keymap_list = ["keymap.fullscreen", "keymap.home", "keymap.back", "keymap.forward", "keymap.pan", "keymap.zoom", "keymap.save", "keymap.help", "keymap.quit", "keymap.quit_all", "keymap.grid", "keymap.grid_minor", "keymap.yscale", "keymap.xscale", "keymap.copy"]
+keymap_list = ["keymap.fullscreen", "keymap.home", "keymap.back", "keymap.forward", "keymap.pan", "keymap.zoom", "keymap.save", "keymap.quit", "keymap.grid", "keymap.yscale", "keymap.xscale"]
+
+for keymap in keymap_list:
+    plt.rcParams[keymap] = []
+
+
+def MAD(x):
+    return np.median(np.abs(x-np.median(x)))
+
 class GUI_mark:
-    def __init__(self,fig,spec2d,profile):
+    def __init__(self,fig,spec2d,profile,params):
         self.fig = fig
         self.spec2d = spec2d
         self.profile = profile
+        self.params = params
 
-        #self.crpix1,self.crval1,self.cd1_1 = wcs
+        ysize1 = self.profile.shape[0]
+        ysize2,xsize = self.spec2d.shape
 
-        xsize = self.profile.shape[0]
-        zsize,ysize = self.spec2d.shape
-        self.zsize = zsize
-        self.x = np.arange(xsize)+1
+        self.xsize = xsize
+        self.ysize1 = ysize1
+        self.ysize2 = ysize2
 
-        print zsize,ysize
+        #self.x = np.arange(xsize)+1
+        self.y = np.arange(ysize1)
+        self.x = np.arange(xsize)
+
+        print xsize,ysize1,ysize2
 
         self.shift_is_held = False
         self.control_is_held = False
@@ -60,40 +78,70 @@ class GUI_mark:
         plt.clf()
         # [x0, y0, xwidth, ywidth]
         self.ax1 = plt.axes([0.1, 0.1, 0.2, 0.8])
-        self.ax2 = plt.axes([0.3, 0.1, 0.6, 0.8])
-
-        #self.x0 = 0.
-        #self.x1 = 
+        self.ax2 = plt.axes([0.35, 0.1, 0.6, 0.8])
 
 
-        print self.x0,self.x1
-        print self.w0,self.w1
+        #print self.x0,self.x1
+        #print self.w0,self.w1
 
-        self.ax1.imshow(self.spec2d[:,self.x0:self.x1],
-                        interpolation="nearest", cmap=cm.gray_r,
-                        vmin=self.v0, vmax=self.v1, aspect="auto",
-                        extent=(self.w0,self.w1,self.zsize,0))
         #self.ax1.imshow(self.spec2d[:,self.x0:self.x1],
-        #self.ax1.imshow(self.spec2d,
-        #                interpolation="nearest", cmap=cm.gray_r)
+        #                interpolation="nearest", cmap=cm.gray_r,
+        #                vmin=self.v0, vmax=self.v1, aspect="auto",
+        #                extent=(self.w0,self.w1,self.zsize,0))
+        #self.ax1.imshow(self.spec2d[:,self.x0:self.x1],
+
+        self.ax1.plot(self.profile,drawstyle="steps",c="k")
+
+        gf = gauss(self.params,0,self.y,fitting=0)
+        self.ax1.plot(gf,c="g")
+
+
+        self.ax2.imshow(self.spec2d, interpolation="nearest", 
+                        vmin=self.v0, vmax=self.v1, origin="lower",
+                        cmap=cm.gray_r, aspect="auto", )
+                        #cmap=cm.gray_r, aspect=aspect, )
+
+        # PGPLOT
+        # ci = 1
+        # ci = 2  red
+        # ci = 3
+        # ci = 4  blue
+        # ci = 7  yellow
        
         # example code: 
         #   ax1.imshow(spec2d[:,x0:x1], interpolation="nearest", cmap=cm.gray_r, vmin=v0, vmax=v1, aspect="auto", extent=(w0,w1,zsize,0))
 
-        plt.setp(self.ax1.get_xticklabels(), visible=False)
+        #plt.setp(self.ax1.get_xticklabels(), visible=False)
 
-        self.ax1.set_xlim(self.w0,self.w1)
-        self.ax2.set_xlim(self.w0,self.w1)
+        #self.ax1.set_xlim(self.w0,self.w1)
+        #self.ax2.set_xlim(self.w0,self.w1)
 
 
 
         #self.ax2.plot(self.wav,self.spec1d,color="k",alpha=0.2,drawstyle="steps")
 
+        cen = self.params[0]
+        y0,y1 = self.ax1.get_ylim()
+
+        self.ax1.plot([cen,cen],[y0,y1], c="y")
+        self.ax1.plot([cen-aper/2.0,cen-aper/2.0],[y0,y1], "--", c="y")
+        self.ax1.plot([cen+aper/2.0,cen+aper/2.0],[y0,y1], "--", c="y")
+
+        self.ax2.plot([self.x[0],self.x[-1]],[cen,cen], c="y")
+        self.ax2.plot([self.x[0],self.x[-1]],[cen-aper/2.0,cen-aper/2.0],"--", c="y")
+        self.ax2.plot([self.x[0],self.x[-1]],[cen+aper/2.0,cen+aper/2.0],"--", c="y")
+
+
+        self.ax2.plot([self.x[0],self.x[-1]],[2.0,2.0], c="r")
+
 
         #self.ax2.set_ylim(self.y0,self.y1)
 
-        #self.ax2.set_xlabel("Observed Wavelength ($\AA$)",fontsize=12)
-        #self.ax2.set_ylabel("Flux",fontsize=12)
+        self.ax1.set_xlabel("X",fontsize=8)
+        self.ax1.set_ylabel("Profile",fontsize=8)
+
+        self.ax2.set_xlabel("X",fontsize=8)
+        self.ax2.set_ylabel("Y",fontsize=8)
 
 
         # display info
@@ -102,37 +150,28 @@ class GUI_mark:
     def bounds(self):
         sigma = 5
 
-        # filter out zeros
-        fwav = np.compress(np.greater(self.wav,0),self.wav)
-
-        self.x0 = np.argmin(np.abs(self.wav - self.w0))
-        self.x1 = np.argmin(np.abs(self.wav - self.w1))
 
         vstd = 1.4826*MAD(self.spec2d.flat)
         vmed = np.median(self.spec2d.flat)
 
-        ystd = 1.4826*MAD(self.profile[self.x0:self.x1])
-        ymed = np.median(self.profile[self.x0:self.x1])
-        #self.x0 = self.x[0]
-        #self.x1 = self.x[-1]
- 
-        print self.x0
-        print self.x1
+        #ystd = 1.4826*MAD(self.profile[self.x0:self.x1])
+        #ymed = np.median(self.profile[self.x0:self.x1])
 
         self.v0 = vmed-sigma*vstd
         self.v1 = vmed+sigma*vstd
 
-        self.y0 = ymed-sigma*ystd
-        self.y1 = ymed+sigma*ystd
+        #self.y0 = ymed-sigma*ystd
+        #self.y1 = ymed+sigma*ystd
 
         print self.v0
         print self.v1
-        print self.y0
-        print self.y1
+        #print self.y0
+        #print self.y1
 
     def on_key_press(self,event):
 
         xc, yc = event.xdata, event.ydata
+        print event.key,xc,yc
 
         #plt.gcf()
         #print plt.gcf()
@@ -142,7 +181,7 @@ class GUI_mark:
         #print self.fr
         #print self.ax1.get_xlim() 
         #print self.ax2.get_xlim() 
-        self.w0,self.w1 = self.ax2.get_xlim() 
+        self.x0,self.x1 = self.ax2.get_xlim() 
         self.y0,self.y1 = self.ax2.get_ylim() 
 
         #print event.key
@@ -151,25 +190,25 @@ class GUI_mark:
         
         #print self.v0,self.v1,self.w0,self.w1,self.y0,self.y1
 
-        if event.key == 'shift':
-            self.shift_is_held = True
+        #if event.key == 'shift':
+        #    self.shift_is_held = True
 
-        if event.key == 'control':
-            self.control_is_held = True
+        #if event.key == 'control':
+        #    self.control_is_held = True
 
-        if event.key == "n":
-           if self.shift_is_held:
-               if self.fr > 0:
-                   self.fr -= 1
-                   resetbounds = 1
-           else:
-               if self.fr < self.slits-1:
-                   self.fr += 1
-                   resetbounds = 1
+        #if event.key == "n":
+        #   if self.shift_is_held:
+        #       if self.fr > 0:
+        #           self.fr -= 1
+        #           resetbounds = 1
+        #   else:
+        #       if self.fr < self.slits-1:
+        #           self.fr += 1
+        #           resetbounds = 1
 
         vran = self.v1 - self.v0
         yran = self.y1 - self.y0
-        xran = self.w1 - self.w0
+        xran = self.x1 - self.x0
 
         if event.key == "s": # sharper
            self.v0 = self.v0 + vran/4.
@@ -206,28 +245,24 @@ class GUI_mark:
                   yran = yran*zf
                   self.y0 = yc - yran/2.; self.y1 = yc + yran/2.
 
-        if event.key == "h":
-            self.x0 = self.x0 - xran/10.
-            if self.x0 < self.x[0]: self.x0 = self.x[0]
-            self.x1 = self.x0 + xran
-        if event.key == "l":
-            self.x1 = self.x1 + xran/10.
-            if self.w1 > self.w[-1]: self.x1 = self.x[-1]
-            self.x0 = self.x1 - xran
-        if event.key == "j":
-            self.y0 = self.y0 - yran/10.
-            self.y1 = self.y1 - yran/10.
-        if event.key == "k":
-            self.y0 = self.y0 + yran/10.
-            self.y1 = self.y1 + yran/10.
+        #if event.key == "h":
+        #    self.x0 = self.x0 - xran/10.
+        #    if self.x0 < self.x[0]: self.x0 = self.x[0]
+        #    self.x1 = self.x0 + xran
+        #if event.key == "l":
+        #    self.x1 = self.x1 + xran/10.
+        #    if self.w1 > self.w[-1]: self.x1 = self.x[-1]
+        #    self.x0 = self.x1 - xran
+        if event.key == "j": self.params[0] = np.max([0.0,self.params[0] - 0.5])
+        if event.key == "k": self.params[0] = np.min([self.params[0] + 0.5,self.spec2d.shape[0]-1])
 
         if event.key == "r":
             resetbounds = 1
 
-        if event.key == "z":
-            if self.control_is_held:
-                if self.redshift: self.redshift = 0
-                else: self.redshift = 1
+        #if event.key == "z":
+        #    if self.control_is_held:
+        #        if self.redshift: self.redshift = 0
+        #        else: self.redshift = 1
 
 
         self.display(resetbounds=resetbounds)
@@ -237,6 +272,18 @@ class GUI_mark:
             self.shift_is_held = False
         if event.key == 'control':
             self.control_is_held = False
+
+    def connect(self):
+        # http://matplotlib.org/users/event_handling.html
+        'connect to all the events we need'
+        #self.cid_key_press      = self.fig.canvas.mpl_connect(
+        #     'button_press_event', self.on_button_press)
+        self.cid_key_press      = self.fig.canvas.mpl_connect(
+             'key_press_event', self.on_key_press)
+        #self.cid_button_release = self.fig.canvas.mpl_connect(
+        #     'button_release_event', self.on_button_release)
+        self.cid_key_release    = self.fig.canvas.mpl_connect(
+             'key_release_event', self.on_key_release)
 
 def between(x,x0,x1):
     return np.greater(x,x0)*np.less(x,x1)
@@ -421,8 +468,11 @@ def GetProfile(D,edge,plot=0,verb=0,mark=0):
         #else:
 
 
-        fig = plt.figure()
-        GUI_mark(fig,spec2d,profile3)
+        #fig = plt.figure()
+        fig = plt.figure(figsize=(10,3))
+        fig.canvas.set_window_title('Mark Spectra')
+        G = GUI_mark(fig,spec2d,profile3,params)
+        G.connect()
         plt.show()
 
         sys.exit()
