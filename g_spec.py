@@ -95,6 +95,21 @@ def tri_smooth(y):
 def MAD(x):
     return np.nanmedian(np.abs(x-np.nanmedian(x)))
 
+# Donald Morton (2000, ApJ. Suppl., 130, 403)
+# https://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
+
+def vac2air(lamb_vac):
+    s = 1E4/lamb_vac
+    n = 1 + 0.0000834254 + 0.02406147 / (130 - s**2) + 0.00015998 / (38.9 - s**2)
+    lamb_air = lamb_vac/n
+    return lamb_air
+    
+def air2vac(lamb_air):
+    s = 1E4 / lamb_air
+    n = 1 + 0.00008336624212083 + 0.02408926869968 / (130.1065924522 - s**2) + 0.0001599740894897 / (38.92568793293 - s**2) 
+    lamb_vac = lamb_air * n
+    return lamb_vac
+
 
 class SingleObject:
 
@@ -143,6 +158,7 @@ class SingleObject:
         if resetbounds:
             self.setup_obj = objD[rows[self.fr]]["setup"]
             #self.smf_obj = objD[rows[self.fr]]["smf"]
+            print self.setup_obj
 
             #self.tfun = objD["trace"] 
             self.tfun = db.dict["trace"]
@@ -161,6 +177,7 @@ class SingleObject:
 
             f2d = self.setup_obj["spec2d"]
 
+            print(f1d)
             pf1d = pyfits.open(f1d,ignore_missing_end=1)
             
             self.spec1d = pf1d[0].data
@@ -175,6 +192,9 @@ class SingleObject:
             ysize,xsize = self.spec1d.shape
             self.x = np.arange(xsize)+1
             self.w = (self.x-self.crpix1)*self.cd1_1+self.crval1  # compute wavelength
+
+            # vacuum wavelengths
+            self.w = air2vac(self.w)
             
             #print (xsize-self.crpix1)*self.cd1_1+self.crval1
             if self.dc_flag: self.w = np.power(10,self.w)
@@ -980,9 +1000,9 @@ class SingleObject:
 #    wavefile = None
 
 for p in sys.path:
-    wavefile = p + "/data/galaxylines.dat"
+    #wavefile = p + "/data/galaxylines.dat"
     #wavefile = p + "/data/galaxylines_short.dat"
-    #wavefile = p + "/../datafiles/linelists/galaxylines.dat"
+    wavefile = p + "/../datafiles/linelists/galaxylines.dat"
     #wavefile = p + "/../datafiles/linelists/galaxylines_short.dat"
     if os.path.exists(wavefile): break
     else: wavefile = None
